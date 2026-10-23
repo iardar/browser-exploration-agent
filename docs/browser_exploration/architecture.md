@@ -58,9 +58,9 @@ boundary records rather than replacing LangGraph's internal state mechanism.
 | `reporting.py`, `telemetry.py` | Safe artifacts, evidence references, actual measured counters |
 | `cli.py` | MCP `check`, browser-free `check-model`, `run`, and JSON schema export |
 
-Components accept injected fakes for offline tests. Browser execution always goes through MCP;
-the installed Playwright dependency belongs to the existing automation project and is not used
-as an alternate execution path by this agent.
+Components accept injected fakes for offline tests. Browser execution always goes through MCP.
+The standalone client has no Python Playwright dependency; the operator provisions the compatible
+browser on the MCP host.
 
 ## Persistent MCP boundary
 
