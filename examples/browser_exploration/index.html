@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Browser exploration controlled demo</title>
+  <style>
+    body { font: 18px/1.6 system-ui, sans-serif; margin: 3rem auto; max-width: 48rem; padding: 1rem; }
+    a { color: #174b92; }
+    a:hover, a:focus { background: #e5efff; }
+    details { border: 1px solid #777; padding: 1rem; margin: 1rem 0; }
+    .hint span { display: none; }
+    .hint:hover span, .hint:focus span { display: inline; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Browser exploration controlled demo</h1>
+    <p>This static fixture contains read-only links and local disclosure controls.</p>
+    <p>There are no accounts, forms, cookies, external assets, or persistence APIs.</p>
+    <nav aria-label="Demo navigation">
+      <a href="/details.html">Read article details</a>
+      <a href="#checks">Jump to observable checks</a>
+    </nav>
+    <details>
+      <summary>Show article metadata</summary>
+      <p>Author: Demo QA. State: published fixture. Category: testing.</p>
+    </details>
+    <p class="hint" tabindex="0">Hover or focus for a hint.
+      <span>Hint: links lead only to this local static fixture.</span>
+    </p>
+    <section id="checks">
+      <h2>Observable checks</h2>
+      <p>The details link opens a second document with a return link.</p>
+      <p>The disclosure control changes only the browser DOM.</p>
+      <p>V1 may report disclosure interaction as unresolved because generic button clicks are blocked.</p>
+    </section>
+  </main>
+</body>
+</html>

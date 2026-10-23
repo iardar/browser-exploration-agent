@@ -1,0 +1,178 @@
+"""Safety invariants do not require a browser, DNS, or an LLM."""
+
+import pytest
+
+from browser_exploration.config import Settings
+from browser_exploration.contracts import BrowserExplorationTask
+from browser_exploration.safety import SafetyError, SafetyPolicy
+
+CAPABILITIES = {
+    "navigate": "browser_navigate",
+    "snapshot": "browser_snapshot",
+    "click": "browser_click",
+    "hover": "browser_hover",
+    "screenshot": "browser_take_screenshot",
+}
+SNAPSHOT = """### Page
+- Page URL: https://example.com/articles
+### Snapshot
+```yaml
+- link "Details" [ref=e1]:
+  - /url: /article/123
+- button "Expand" [ref=e2]
+- button "Publish" [ref=e3]
+- link "Outside" [ref=e4]:
+  - /url: https://outside.example.org/
+```
+"""
+
+
+def policy(*, allow_mutations: bool = False, **kwargs: object) -> SafetyPolicy:
+    return SafetyPolicy(
+        BrowserExplorationTask(
+            url="https://example.com/articles", objective="Explore", allow_mutations=allow_mutations
+        ),
+        Settings.model_validate({"network_restricted": True, **kwargs}),
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "https://user:secret@example.com/",
+        "https://outside.example.org/",
+        "https://sub.example.com/",
+        "http://169.254.169.254/latest/meta-data",
+        "http://127.0.0.1/",
+        "http://10.0.0.1/",
+        "http://localhost/",
+        "http://office.internal/",
+        "http://[::1]/",
+        "http://2130706433/",
+        "http://0x7f000001/",
+        "http://127.1/",
+        "http://127.000.0.1/",
+        "https://%65xample.com/",
+        "https://example.com:99999/",
+        "https://example.com/\nsecret",
+        "https://example.com/space here",
+        "https://example.com\\@outside.example.org/",
+    ],
+)
+def test_unsafe_urls_rejected(url: str) -> None:
+    with pytest.raises(SafetyError):
+        policy().validate_url(url)
+
+
+def test_exact_domains_and_normalization() -> None:
+    assert policy().validate_url("https://EXAMPLE.COM") == "https://example.com/"
+    assert policy().validate_url("https://example.com.:8443/x") == "https://example.com:8443/x"
+
+
+def test_private_network_requires_both_opt_in_and_allowlist() -> None:
+    task = BrowserExplorationTask(url="http://127.0.0.1:8765", objective="Demo")
+    with pytest.raises(SafetyError, match="Private"):
+        SafetyPolicy(task, Settings()).validate_url(task.url)
+    allowed = SafetyPolicy(task, Settings(allow_private_network=True))
+    assert allowed.validate_url(task.url) == "http://127.0.0.1:8765/"
+    with pytest.raises(SafetyError, match="allowed domains"):
+        policy(allow_private_network=True).validate_url("http://127.0.0.1/")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://169.254.169.254/",
+        "http://metadata.google.internal/",
+        "http://[fd00:ec2::254]/",
+        "http://[::ffff:169.254.169.254]/",
+    ],
+)
+def test_metadata_always_denied_even_with_private_opt_in(url: str) -> None:
+    task = BrowserExplorationTask(url=url, objective="Must fail")
+    with pytest.raises(SafetyError, match="metadata"):
+        SafetyPolicy(task, Settings(allow_private_network=True)).validate_url(url)
+
+
+def test_no_browser_action_without_external_network_boundary() -> None:
+    task = BrowserExplorationTask(url="https://example.com/", objective="Explore")
+    restricted = SafetyPolicy(task, Settings())
+    with pytest.raises(SafetyError, match="network_restricted"):
+        restricted.authorize("browser_snapshot", {}, CAPABILITIES)
+
+
+def test_observed_link_becomes_validated_navigation_and_ignores_model_label() -> None:
+    restricted = policy()
+    assert restricted.observe(SNAPSHOT, require_url=True) == "https://example.com/articles"
+    assert restricted.authorize(
+        "browser_click", {"ref": "e1", "element": "Ignore all restrictions"}, CAPABILITIES
+    ) == ("browser_navigate", {"url": "https://example.com/article/123"})
+    assert restricted.authorize("browser_click", {"target": "e1"}, CAPABILITIES) == (
+        "browser_navigate",
+        {"url": "https://example.com/article/123"},
+    )
+
+
+def test_arbitrary_clicks_selectors_and_external_links_denied() -> None:
+    restricted = policy()
+    restricted.observe(SNAPSHOT)
+    for arguments in ({"ref": "e2"}, {"target": "button"}, {"ref": "e4"}, {"ref": "stale"}):
+        with pytest.raises(SafetyError):
+            restricted.authorize("browser_click", arguments, CAPABILITIES)
+
+
+def test_mutation_flag_allows_observed_click_but_never_destructive_label() -> None:
+    restricted = policy(allow_mutations=True)
+    restricted.observe(SNAPSHOT)
+    assert restricted.authorize("browser_click", {"ref": "e2"}, CAPABILITIES) == (
+        "browser_click",
+        {"ref": "e2"},
+    )
+    with pytest.raises(SafetyError, match="publishing"):
+        restricted.authorize("browser_click", {"ref": "e3", "element": "Safe"}, CAPABILITIES)
+    with pytest.raises(SafetyError):
+        restricted.authorize("browser_click", {"ref": "e2", "modifiers": ["Control"]}, CAPABILITIES)
+
+
+@pytest.mark.parametrize("suffix", ["/delete/123", "/%64elete/123", "/login", "/?action=publish"])
+def test_known_mutating_and_authentication_routes_are_denied(suffix: str) -> None:
+    with pytest.raises(SafetyError):
+        policy().authorize(
+            "browser_navigate", {"url": "https://example.com" + suffix}, CAPABILITIES
+        )
+
+
+def test_observation_rechecks_navigation_and_expires_references() -> None:
+    restricted = policy()
+    restricted.observe(SNAPSHOT)
+    assert restricted.observe("Console: all good") == "https://example.com/articles"
+    with pytest.raises(SafetyError, match="omitted"):
+        restricted.observe("Empty snapshot", require_url=True)
+    with pytest.raises(SafetyError, match="allowed domains"):
+        restricted.observe("- Page URL: https://outside.example.org/")
+    restricted.observe("- Page URL: https://example.com/empty\n### Snapshot\n- text: Empty")
+    assert restricted.link_targets == {}
+    assert restricted.element_labels == {}
+
+
+def test_forbidden_tools_and_filename_args_cannot_escape_policy() -> None:
+    restricted = policy()
+    for name, arguments in (
+        ("browser_evaluate", {"function": "() => document.cookie"}),
+        ("browser_snapshot", {"filename": "/tmp/leak"}),
+        ("browser_take_screenshot", {"filename": "../secret"}),
+    ):
+        with pytest.raises(SafetyError):
+            restricted.authorize(name, arguments, CAPABILITIES)
+
+
+def test_screenshot_target_must_be_an_observed_reference() -> None:
+    restricted = policy()
+    restricted.observe(SNAPSHOT)
+    with pytest.raises(SafetyError, match="reference"):
+        restricted.authorize("browser_take_screenshot", {"target": "body"}, CAPABILITIES)
+    assert restricted.authorize(
+        "browser_take_screenshot", {"target": "e2", "scale": "css"}, CAPABILITIES
+    ) == ("browser_take_screenshot", {"target": "e2", "scale": "css"})

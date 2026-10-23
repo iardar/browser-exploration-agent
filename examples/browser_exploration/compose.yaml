@@ -1,0 +1,47 @@
+# Standalone demo only; does not extend or alter existing project services.
+# Pin both image references by digest before adopting this deployment elsewhere.
+name: qa-browser-demo
+services:
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright/mcp:latest
+    init: true
+    entrypoint: ["node", "/app/cli.js"]
+    command:
+      - --headless
+      - --browser
+      - chromium
+      - --no-sandbox
+      - --isolated
+      - --port
+      - "8931"
+      - --host
+      - 0.0.0.0
+      - --allowed-hosts
+      - localhost:8931,127.0.0.1:8931
+      - --output-dir
+      - /tmp/qa-browser-artifacts
+    ports:
+      - "127.0.0.1:8931:8931"
+      - "127.0.0.1:8765:8765"
+    networks: [demo-only]
+    tmpfs:
+      - /tmp/qa-browser-artifacts
+    shm_size: 1gb
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  demo:
+    image: python:3.12-alpine
+    # Browser and Python client can both use http://127.0.0.1:8765.
+    network_mode: service:playwright-mcp
+    command: ["python", "-m", "http.server", "8765", "--bind", "0.0.0.0", "--directory", "/demo"]
+    volumes:
+      - ./index.html:/demo/index.html:ro
+      - ./details.html:/demo/details.html:ro
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+networks:
+  demo-only:
+    internal: true

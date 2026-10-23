@@ -1,0 +1,92 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "expected_behavior": {
+      "title": "Expected Behavior",
+      "type": "string"
+    },
+    "observed_behavior": {
+      "title": "Observed Behavior",
+      "type": "string"
+    },
+    "reproduction_steps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reproduction Steps",
+      "type": "array"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "verification_status": {
+      "enum": [
+        "confirmed",
+        "potential",
+        "inconclusive"
+      ],
+      "title": "Verification Status",
+      "type": "string"
+    },
+    "severity": {
+      "anyOf": [
+        {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "informational"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Severity"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "description",
+    "expected_behavior",
+    "observed_behavior",
+    "verification_status"
+  ],
+  "title": "BrowserFinding",
+  "type": "object"
+}

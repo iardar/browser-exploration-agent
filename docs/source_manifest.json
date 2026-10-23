@@ -1,0 +1,73 @@
+{
+    "source": "Agentic QA browser package workspace snapshot",
+    "source_path": "repository/src/agentic_qa/browser_exploration",
+    "extracted_on": "2026-10-23",
+    "source_git_revision": null,
+    "normalization": "agentic_qa.browser_exploration -> browser_exploration",
+    "modules": [
+        {
+            "module": "__init__.py",
+            "source_sha256": "ef19a843559f2c4fd380ff8a8e7d6ed5e92efc344085b0d60182b88439ad541b"
+        },
+        {
+            "module": "browser_tools.py",
+            "source_sha256": "63b9020bc1b44cc572a682d3a0f1417c86985eec7190c943780ddd5cf9e24d59"
+        },
+        {
+            "module": "cli.py",
+            "source_sha256": "5c0f39d80b4180c49811c3a9c7de2b18797476c7de0cb8ea39f99fd3bb9af47e"
+        },
+        {
+            "module": "config.py",
+            "source_sha256": "bf57c2e20af99b8b127a6906cf9225f7eac28f919311ac51b0fff9fca098bb0d"
+        },
+        {
+            "module": "context_builder.py",
+            "source_sha256": "ef9e02c5e3dc449669681fd1db5e1bf0c0396691d7cb5b59306c09ab3b827f41"
+        },
+        {
+            "module": "contracts.py",
+            "source_sha256": "499c36987c12478a66f5df80e9c01f96949e62669fd1ebbf0e22979eac950cc8"
+        },
+        {
+            "module": "explorer.py",
+            "source_sha256": "57ac82c781d4ec9e6fab6f31cac26c87d52267a7f089fd523387e31bfb112d59"
+        },
+        {
+            "module": "graph.py",
+            "source_sha256": "287f357842ac8ff44d170d460355f1cf1ecae4b2e3377a15bc24c0705b9b7295"
+        },
+        {
+            "module": "mcp_client.py",
+            "source_sha256": "9e38e20c33b96c13b4dbe45f29e183ffea88a173d6056033b975193a34aaee83"
+        },
+        {
+            "module": "model.py",
+            "source_sha256": "74ae07ae4483b83bed52554a91438416246c3f03ef9b2b93670b555e5392aa4a"
+        },
+        {
+            "module": "observations.py",
+            "source_sha256": "fce10f533a48cc6f6d214da3e62526396d002cc10acbe9c12c8f33ddd6ace294"
+        },
+        {
+            "module": "prompts.py",
+            "source_sha256": "41f7849641ae61fd7f57b7a4e0d2ac3bcf1904c86179bc05ae9582e6f6f46cff"
+        },
+        {
+            "module": "reporting.py",
+            "source_sha256": "5494308ce63a4214ce278f44aca3ab646eb0d6925d426976a87c269b6cfb4911"
+        },
+        {
+            "module": "safety.py",
+            "source_sha256": "c1be6440b045c565ad7f5e7d05a6de2529aed9e20a07a6016a157e771f35eabd"
+        },
+        {
+            "module": "state.py",
+            "source_sha256": "1ddbeadde24eeec05bb1de6e951a6bb43f178f0b375f8fc8f7fba360fcbcbc10"
+        },
+        {
+            "module": "telemetry.py",
+            "source_sha256": "3c2a9d7e5a777b08eb8a8e13159f73593cc0688ecad1733c8297fba3c6e50010"
+        }
+    ]
+}

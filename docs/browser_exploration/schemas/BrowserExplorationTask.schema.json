@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "ContextSnippet": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 1000000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "text"
+      ],
+      "title": "ContextSnippet",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "url": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+    },
+    "objective": {
+      "maxLength": 100000,
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "requirement_text": {
+      "anyOf": [
+        {
+          "maxLength": 1000000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requirement Text"
+    },
+    "context_snippets": {
+      "items": {
+        "$ref": "#/$defs/ContextSnippet"
+      },
+      "maxItems": 100,
+      "title": "Context Snippets",
+      "type": "array"
+    },
+    "allowed_domains": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Allowed Domains",
+      "type": "array"
+    },
+    "max_steps": {
+      "default": 30,
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Max Steps",
+      "type": "integer"
+    },
+    "max_model_iterations": {
+      "default": 20,
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Max Model Iterations",
+      "type": "integer"
+    },
+    "max_duration_seconds": {
+      "default": 120,
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Max Duration Seconds",
+      "type": "integer"
+    },
+    "max_recent_observations": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Max Recent Observations",
+      "type": "integer"
+    },
+    "max_observation_chars": {
+      "default": 6000,
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Max Observation Chars",
+      "type": "integer"
+    },
+    "max_context_chars": {
+      "default": 18000,
+      "maximum": 2000000,
+      "minimum": 4096,
+      "title": "Max Context Chars",
+      "type": "integer"
+    },
+    "allow_mutations": {
+      "default": false,
+      "title": "Allow Mutations",
+      "type": "boolean"
+    },
+    "allow_form_input": {
+      "default": false,
+      "title": "Allow Form Input",
+      "type": "boolean"
+    },
+    "allow_form_submission": {
+      "default": false,
+      "title": "Allow Form Submission",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "url",
+    "objective"
+  ],
+  "title": "BrowserExplorationTask",
+  "type": "object"
+}

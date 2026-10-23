@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "url": {
+      "title": "Url",
+      "type": "string"
+    },
+    "action_name": {
+      "title": "Action Name",
+      "type": "string"
+    },
+    "action_arguments": {
+      "additionalProperties": true,
+      "title": "Action Arguments",
+      "type": "object"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "evidence_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Ref"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "error": {
+      "default": false,
+      "title": "Error",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "url",
+    "action_name",
+    "summary"
+  ],
+  "title": "BrowserObservation",
+  "type": "object"
+}

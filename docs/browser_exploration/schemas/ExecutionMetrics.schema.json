@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "duration_seconds": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duration Seconds",
+      "type": "number"
+    },
+    "browser_tool_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Browser Tool Calls",
+      "type": "integer"
+    },
+    "successful_browser_tool_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Successful Browser Tool Calls",
+      "type": "integer"
+    },
+    "failed_browser_tool_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Failed Browser Tool Calls",
+      "type": "integer"
+    },
+    "llm_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Llm Calls",
+      "type": "integer"
+    },
+    "input_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Tokens"
+    },
+    "output_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Tokens"
+    },
+    "total_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Tokens"
+    },
+    "findings_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Findings Count",
+      "type": "integer"
+    },
+    "verified_behaviors_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Verified Behaviors Count",
+      "type": "integer"
+    }
+  },
+  "title": "ExecutionMetrics",
+  "type": "object"
+}
