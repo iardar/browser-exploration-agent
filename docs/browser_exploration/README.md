@@ -7,7 +7,8 @@ QA results. It does not import, invoke, or alter the existing Agentic QA workflo
 For a component-by-component explanation of the run lifecycle and MCP connection, see
 [how_it_works.md](how_it_works.md).
 
-See [architecture.md](architecture.md) for the graph and contracts and
+See the [system architecture design](../architecture.md),
+[implementation notes](architecture.md) for the graph and contracts, and
 [future_integration.md](future_integration.md) for the deferred integration boundary.
 
 ## Install and check the connection

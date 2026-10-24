@@ -1,5 +1,8 @@
 # Browser exploration architecture
 
+The [system architecture design](../architecture.md) is the primary design document for the
+standalone package. These notes provide additional implementation detail for its components.
+
 The package lives at `src/browser_exploration/`. It is a standalone capability with Pydantic v2
 contracts and an asynchronous `BrowserExplorer` Protocol. Host workflow state, requirement
 analysis, retrieval, and evaluation datasets belong to consuming applications. There is no

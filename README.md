@@ -76,6 +76,7 @@ Read the [operating guide](docs/browser_exploration/README.md) before running ag
 
 ## Contracts and design
 
+- [System architecture design](docs/architecture.md)
 - [Browser boundary investigation](docs/browser_exploration/boundary_review.md)
 - [Detailed V1 integration contract](docs/contracts/browser_exploration_v1.md)
 - [Reusable node contract template](docs/templates/node_contract_template.md)
