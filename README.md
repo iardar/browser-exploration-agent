@@ -46,8 +46,9 @@ uv build
 ```
 
 If this restricted sandbox misses asyncio selector wakeups, use the optional test-only workaround:
-`uv run pytest -p tests.sandbox_polling tests/unit tests/integration -q`. It does not change runtime
-code or relax test network restrictions. See the extraction record for the actual validation scope.
+`PYTHONPATH=.:src uv run python -m pytest tests/unit -n auto -p tests.sandbox_polling`.
+It does not change runtime code or relax test network restrictions. See the
+[testing guide](docs/browser_exploration/testing.md) for validation scope and coverage commands.
 
 The Python Playwright package is not a client dependency. Install/run the compatible browser on
 the MCP server. The `qa-browser` command name is retained from Agentic QA; use a dedicated virtual
@@ -77,15 +78,21 @@ an independently restricted MCP/browser deployment. `.env.example` leaves the ex
 attestation disabled. Set `BROWSER_NETWORK_RESTRICTED=true` only after those controls exist.
 Read the [operating guide](docs/browser_exploration/README.md) before running against a target.
 
-## Contracts and design
+## Documentation
 
-- [System architecture design](docs/architecture.md)
-- [Browser boundary investigation](docs/browser_exploration/boundary_review.md)
-- [Detailed V1 integration contract](docs/contracts/browser_exploration_v1.md)
-- [Reusable node contract template](docs/templates/node_contract_template.md)
-- [Adapter-first integration design](docs/adapter_design.md)
-- [Extraction and validation record](docs/extraction.md)
-- [Original plan review findings](docs/plan_review_findings.md)
+| Need | Maintained document |
+| --- | --- |
+| Understand a run and read the code | [How it works](docs/browser_exploration/how_it_works.md) |
+| Understand components, graph nodes, and remaining limitations | [Architecture](docs/architecture.md) |
+| Install, configure, and operate the agent | [Operating guide](docs/browser_exploration/README.md) |
+| Integrate through the public task/result boundary | [V1 contract](docs/contracts/browser_exploration_v1.md) and [adapter design](docs/adapter_design.md) |
+| Run offline tests, measure coverage, or opt into MCP checks | [Testing guide](docs/browser_exploration/testing.md) |
+| Step through the application in VS Code | [Debugging guide](docs/debugging.md) |
+| Draft another node's contract | [Reusable Markdown template](docs/templates/node_contract_template.md) |
+
+[Extraction provenance](docs/extraction.md) and [historical research](docs/history/research_notes.md)
+are dated records. Historical test counts, parent-workflow plans, and public-site experiments are
+not current operating instructions or standalone release guarantees.
 
 ## Current correctness limits
 

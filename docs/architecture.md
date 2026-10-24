@@ -2,7 +2,7 @@
 
 | Document property | Value |
 | --- | --- |
-| Revision | 1.0 |
+| Revision | 1.1 |
 | Date | 2026-10-24 |
 | System | Browser Exploration Agent |
 | Implementation baseline | Package `browser-exploration-agent` 0.1.0; result schema 1.0 |
@@ -182,8 +182,8 @@ the main lifecycle and execution methods explain their steps in more detail.
 
 The router uses `status=None` to continue the loop; each action still needs its budget and policy
 checks. Any terminal status sends the run to `finalize_report`. Finalization builds a report in
-memory; the application service finalizes
-again after session cleanup and asks `ArtifactStore.save_result` to write it to disk. Model-selected
+memory; the application service finalizes again after session cleanup and asks
+`ArtifactStore.save_result` to write it to disk. Model-selected
 `completed` means the loop stopped, while objective assessment remains the host's responsibility.
 
 `prepare_context` repeats the preflight checks inside the observable graph. Each
@@ -494,6 +494,8 @@ The following are proposed directions, not current capabilities:
 | Next | Screenshot capture and visual verification are conflated in reporting | Design executor-owned capture records; review schema compatibility before changing result fields |
 | Next | Artifact failures can escape the structured result boundary | Define an explicit persistence-failure contract and failure-injection tests |
 | Next | Repeated rejected proposals can consume all iterations | Evaluate a bounded no-progress rule with recorded trajectories |
+| Next | Generic root-level Decision diagnostics can obscure the failed rule | Consider rule-specific safe diagnostic codes without logging raw output or rejected values |
+| Next | Prefix truncation can omit relevant result content after query compaction | Evaluate observation selection against reviewed fixture content without weakening context limits or provenance |
 | Before scale-out | Sharing and workload capacity are unspecified | Validate run-local dependencies, browser allocation, admission limits, and storage ownership before adding workers |
 
 Open deployment decisions include the first controlled application/version, allowed interaction
@@ -507,11 +509,13 @@ decisions.
 - [V1 integration contract](contracts/browser_exploration_v1.md): public schemas, operational semantics, and consumer obligations.
 - [Adapter design](adapter_design.md): host mappings, envelope, routing, and contract-test scenarios.
 - [Operating guide](browser_exploration/README.md): installation, commands, and controlled demo setup.
-- [Implementation architecture notes](browser_exploration/architecture.md): detailed module behavior.
-- [Boundary investigation](browser_exploration/boundary_review.md): inspected capability limits and extraction decisions.
-- [Plan review findings](plan_review_findings.md): unresolved correctness and delivery risks.
+- [How it works](browser_exploration/how_it_works.md): a concise walkthrough and source reading order.
+- [Testing guide](browser_exploration/testing.md): offline checks, coverage, opt-in integration, and validation scope.
+- [Debugging guide](debugging.md): VS Code profiles and breakpoint locations.
+- [Extraction record](extraction.md): source provenance, packaging decisions, and dated standalone checks.
+- [Historical research](history/research_notes.md): preserved experiment evidence and parent-review lessons.
 - [Reusable contract template](templates/node_contract_template.md): a starting point for another node's public contract.
 
 The source of truth for current behavior is `src/browser_exploration/`; public field definitions
-and generated schemas govern serialization. Keep this design, implementation notes, and the
+and generated schemas govern serialization. Keep this design, the walkthrough, and the
 integration contract aligned when changing a boundary or runtime responsibility.

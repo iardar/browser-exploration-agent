@@ -18,3 +18,5 @@ runs/
 .playwright-mcp/
 *.log
 .DS_Store
+output/pdf/
+tmp/pdfs/

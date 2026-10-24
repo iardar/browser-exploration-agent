@@ -22,13 +22,14 @@ Host: requirement analysis + retrieval + trusted deployment configuration
 The browser service owns its own LangGraph. The adapter may be one async node in the host graph;
 it does not merge graph states, reach into `ExplorationNodes`, or parse CLI console output as an API.
 
-## Concrete Agentic QA mapping
+## Host input mapping
 
 | Host input | Public node input | Adapter rule |
 | --- | --- | --- |
 | Original requirement | `requirement_text` | Preserve original text within a chosen bound |
 | Analysis objective/feature/operation | `objective` | Preserve intent and explicit restrictions; do not invent expected behavior |
 | Conditions/expected outcomes/ambiguities | Requirement or context text | Label expected versus unknown; retain approved source IDs in host envelope |
+| Actors and preconditions | Requirement or context text | Preserve relevant constraints; an actor name does not grant credentials or mutation permission |
 | Retrieved item path/snippet | `ContextSnippet(source, text)` | Select bounded source-tagged data; no permission changes |
 | Trusted application deployment | `url`, `allowed_domains` | Explicit URL and exact authorized hostnames |
 | Trusted execution policy | Task permission flags and budgets | Never derive from model/page/repository instructions |
@@ -37,6 +38,12 @@ it does not merge graph states, reach into `ExplorationNodes`, or parse CLI cons
 Do not import `agentic_qa` into this repository to implement these mappings. They describe what a
 consumer adapter must do. Record the host package revision and browser package/schema version
 separately for reproducibility.
+
+Preserve the original requirement and material ambiguities alongside selected context. Retrieved
+snippets are browser hints, not proof of expected behavior or a complete executable-test context.
+If a host later generates tests, it separately needs relevant complete symbols, imports, fixture
+registration, and repository configuration. That retrieval/generation contract stays outside the
+browser package. Do not assume a host retriever implements AST indexing without checking it.
 
 ## Host envelope
 

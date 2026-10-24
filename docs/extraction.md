@@ -1,19 +1,23 @@
 # Extraction and validation record
 
-Date: 2026-10-23. Distribution: `browser-exploration-agent` 0.1.0.
+Recorded extraction: 2026-10-23. Distribution: `browser-exploration-agent` 0.1.0.
+This is a dated provenance record, not a description of every subsequent source change or a
+fresh validation run. Use the [testing guide](browser_exploration/testing.md) for current commands.
 
 ## Source and scope
 
 The browser capability was extracted from the Agentic QA workspace into a separate local Git
-repository. The source workspace does not expose usable Git history in this environment, so this
-is a source snapshot rather than a history-preserving split. Original runtime files remain in the
-source workspace. [Source SHA-256 hashes](source_manifest.json) identify all 16 extracted modules.
+repository. Usable source Git history was unavailable during extraction, so this was a source
+snapshot rather than a history-preserving split. Original files were left in the source workspace.
+[Source SHA-256 hashes](source_manifest.json) identify the original 16 modules; they are extraction
+provenance, not checksums of the subsequently annotated working tree.
 
-Production code differs only by the namespace/logger rename
+At extraction, production code differed only by the namespace/logger rename
 `agentic_qa.browser_exploration` → `browser_exploration`. A mechanical comparison checked all 16
 files against that normalization. Task/result fields, statuses, graph policy, and known limitations
-were preserved. This extraction does not resolve the semantic or orchestration findings in the
-[review](plan_review_findings.md).
+were preserved. Extraction did not resolve semantic or host-orchestration findings. Relevant
+review evidence is preserved in the [historical research record](history/research_notes.md);
+current correctness boundaries are documented in the [architecture](architecture.md#14-limitations-and-evolution).
 
 Included: production browser modules, browser unit tests, opt-in local MCP test, controlled static
 fixture, synthetic example, five JSON schemas, browser guides, Apache-2.0 license, packaging, CI,
@@ -21,8 +25,8 @@ boundary investigation, contract, adapter design, and reusable Markdown template
 
 Excluded: host workflow/analyzer/retrieval/generation/execution modules, sample automation,
 credentials, `.env`, historical saved runs, cache directories, browser profiles, and parent Git
-metadata. Historical browser reports and a reviewed plan snapshot are documentation references;
-their old test counts are explicitly labeled historical.
+metadata. Useful evidence from older browser reports and the parent review is consolidated in
+the historical research record, separate from maintained operating guidance.
 
 ## Adapter-first integration
 
@@ -100,7 +104,7 @@ uv build
 For this restricted sandbox's selector limitation only:
 
 ```bash
-uv run pytest -p tests.sandbox_polling tests/unit tests/integration -q
+PYTHONPATH=.:src uv run python -m pytest tests/unit -n auto -p tests.sandbox_polling
 ```
 
 Use `UV_CACHE_DIR` pointed at a writable cache when the default home cache is read-only. No local
@@ -108,7 +112,7 @@ cache path is required by the package, lock, tests, or CI configuration.
 
 ## Git and publication
 
-The repository has an independent `.git` directory and `main` branch. An initial local snapshot
-commit records the extracted code and documentation. No remote hosting provider or remote URL was
-specified, so no remote repository or package publication is claimed. See `git log -1` for the
-snapshot commit and `git remote -v` for the current remote configuration.
+An independent `.git` directory and `main` branch were created for extraction. The initial local
+commit recorded the extracted code and documentation; subsequent commits can change the working
+implementation. No remote hosting or package publication was performed as part of extraction.
+Use Git history for the extraction commit and inspect current remote configuration separately.

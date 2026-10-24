@@ -1,165 +1,88 @@
-# Autonomous Browser Exploration Agent V1
+# Operating the browser exploration agent
 
-`qa-browser` runs an independent LangGraph agent that observes a browser through an existing
-Microsoft Playwright MCP server, chooses relevant actions with ChatOpenAI, and writes structured
-QA results. It does not import, invoke, or alter the existing Agentic QA workflow.
+This guide covers installation, controlled browser setup, configuration, and run artifacts.
+For the run lifecycle, read [How it works](how_it_works.md). The
+[architecture](../architecture.md) describes the implementation; the
+[V1 contract](../contracts/browser_exploration_v1.md) defines public behavior, and the
+[adapter design](../adapter_design.md) explains host integration.
 
-For a component-by-component explanation of the run lifecycle and MCP connection, see
-[how_it_works.md](how_it_works.md).
+## Install and diagnose dependencies
 
-See the [system architecture design](../architecture.md),
-[implementation notes](architecture.md) for the graph and contracts, and
-[future_integration.md](future_integration.md) for the deferred integration boundary.
-
-## Install and check the connection
-
-Use the repository's Python **3.12** environment and `uv` lockfile:
+Run from the repository root with Python 3.12:
 
 ```bash
-uv sync
-export PLAYWRIGHT_MCP_URL=http://127.0.0.1:8931/mcp
-uv run qa-browser check
+uv sync --locked
+uv run qa-browser --help
 ```
 
-`check` opens an initialized Streamable HTTP MCP session, lists discovered tools, and validates
-required browser capabilities. It does not require an OpenAI API key or launch a browser locally.
-Navigation and accessibility snapshot capabilities are mandatory. Unsupported tool names or
-schemas produce diagnostics instead of being guessed from arbitrary server descriptions.
+The Python client does not require the Python Playwright package. The operator starts a separate
+Microsoft Playwright MCP server with a compatible installed browser. The client does not start
+that server, launch a local browser, or reuse an IDE's MCP session.
 
-The server must be Microsoft Playwright MCP, with a compatible installed browser. For a native
-Linux installation, the server can be started separately using its supported CLI:
+A native setup used for the historical smoke test was:
 
 ```bash
 npx --yes @playwright/mcp@0.0.83 --headless --isolated --port 8931 --host 127.0.0.1 \
   --allowed-hosts localhost:8931,127.0.0.1:8931
 ```
 
-Pin an evaluated MCP release in a repeatable deployment. The Python agent never embeds
-Playwright or relies on an IDE MCP connection. One initialized session stays open for an entire
-exploration run; a new connection is not created for each action. Use a dedicated MCP server or
-isolated browser context rather than another user's authenticated browser.
+That is a recorded version, not a claim about the latest release. Pin an evaluated server/browser
+combination for your deployment. The Python dependencies retain MCP SDK `>=1.26,<2`; update the
+SDK and `langchain-mcp-adapters` together and validate session continuity after an upgrade.
 
-The lockfile preserves the repository's LangGraph/LangChain versions and adds
-`langchain-mcp-adapters` 0.2.2. MCP SDK is constrained to `>=1.26,<2` because adapter 0.2.2
-imports APIs removed in MCP 2.x. Update the adapter and SDK together after validating the
-persistent-session smoke test.
+The commands check different dependencies:
+
+| Command | What it establishes | External interaction |
+| --- | --- | --- |
+| `uv run qa-browser check` | MCP initialization and supported tool discovery | MCP only; no navigation or model request |
+| `uv run qa-browser check-model --model YOUR_APPROVED_MODEL` | One bounded structured decision request | Model provider only; no browser |
+| `uv run qa-browser run ...` | A bounded exploration with an actual terminal result | Model provider, MCP/browser, and target |
+| `uv run qa-browser schemas` | Public schema export | None |
+
+Replace `YOUR_APPROVED_MODEL` with a model available to your configured provider/account.
+`check-model` defaults to a 30-second deadline; `--timeout-seconds` changes it. Successful MCP
+discovery does not establish model access, and a successful model check does not establish browser
+availability or exploration quality.
+
+`check` requires navigation and accessibility snapshot capabilities. Optional tools are discovered
+only when known names and compatible schemas are available. One initialized MCP session remains
+open for the whole exploration run.
 
 ## Safety prerequisites
 
-Run V1 against controlled read-only applications. Navigation, hover, redirects, page scripts,
-and even HTTP GET requests can cause side effects in arbitrary applications. Button names and
-MCP read-only annotations cannot establish that an operation is harmless.
+Use an authorized controlled application and a dedicated or isolated browser context. Navigation,
+hover, HTTP GET requests, redirects, and page scripts can have side effects. A control label or
+server annotation does not prove an operation harmless.
 
-Before an exploration, configure browser-side network controls that restrict destinations,
-including redirects, subresources, private networks, and metadata endpoints. Also use a read-only
-application deployment or credentials/environment with no mutation capability. Setting
-`BROWSER_NETWORK_RESTRICTED=true` is an **operator attestation** that these deployment controls
-exist; it does not install a firewall. Runs fail closed without that attestation. An allowlist in
-the Python client is an additional check, not enforcement of all browser network requests.
-Microsoft explicitly states that MCP `--allowed-origins` is not a security boundary and does
-not cover redirects.
+Before a live exploration, independently restrict browser-originated requests, including redirects,
+subresources, private destinations, and metadata endpoints. Use application permissions and fixture
+state appropriate to the allowed interactions. Set `BROWSER_NETWORK_RESTRICTED=true` only after
+those controls exist: it is an operator attestation, not a firewall or a verification of the network.
+MCP host/origin flags and Python URL checks do not replace that browser network boundary.
 
-The client allows exact configured hostnames, checks URL schemes, literal IP addresses, and
-recognizable local/private hostnames, and rechecks observed page destinations when available.
-It does not resolve DNS or prevent DNS rebinding; those boundaries belong to the browser's
-external network controls. Private and local targets require the
-separate `BROWSER_ALLOW_PRIVATE_NETWORK=true` opt-in. By default, only the target hostname is
-allowed; use repeated `--allowed-domain` flags for additional authorized hosts.
+The client checks exact hostnames, URL shape, literal IP ranges, and recognizable private hosts.
+It does not resolve DNS or prevent rebinding. Private/local targets also require
+`BROWSER_ALLOW_PRIVATE_NETWORK=true`. Additional authorized hosts need repeated `--allowed-domain`
+flags; a parent hostname does not implicitly authorize subdomains.
 
-The exposed tool catalog excludes JavaScript execution, code execution, uploads, and credential
-management. Generic clicks and form input are blocked by default. A click on a link from the latest
-snapshot can be converted to validated URL navigation. Hover, snapshots, screenshots, console,
-network inspection, typing, and multi-field form filling are available when compatible server
-tools are present. The
-`--allow-mutations` flag explicitly authorizes generic clicks on references from the latest
-snapshot in a controlled application. It still denies known authentication, destructive, and
-publishing controls and never enables arbitrary JavaScript or uploads. `--allow-form-input`
-authorizes bounded text entry into observed, non-sensitive fields. `--allow-form-submission`
-separately authorizes `browser_type` to submit with Enter; it also implies form-input permission.
-It also permits observed Submit or Search controls to be clicked. Credential, token, payment,
-authentication, and destructive fields remain denied. That
-label-based rejection cannot prove a generic click is safe. Leave the flag disabled for the
-demonstration objective; some visible interactions will remain unresolved.
+Default policy permits observed link navigation and supported inspections. Generic clicks, input,
+and submission have separate flags:
 
-## Run an exploration
+| Flag | Permission added | Remaining restrictions |
+| --- | --- | --- |
+| `--allow-mutations` | Certain generic clicks on observed references | Known authentication, destructive, payment, and publishing controls remain denied |
+| `--allow-form-input` | Bounded typing and filling observed non-sensitive fields | No credentials, tokens, payment data, or unsupported field types |
+| `--allow-form-submission` | Supported submission and observed Submit/Search controls; implies input permission | Does not bypass sensitive-control or destination checks |
 
-Configure an API key in the process environment without committing it:
+Arbitrary JavaScript, uploads, filesystem tools, and credential management are excluded. The
+label/route checks are heuristic; permission flags do not prove that an operation is safe.
 
-```bash
-export OPENAI_MODEL=gpt-4.1-mini
-# Set OPENAI_API_KEY through your shell or secret manager.
-# Set this only after independently enforcing the safety prerequisites above.
-export BROWSER_NETWORK_RESTRICTED=true
+## Controlled fixture and MCP smoke test
 
-uv run qa-browser run \
-  --url https://demo.realworld.show/article/agentic-qa-article-18db9f7677 \
-  --goal 'Independently explore the article functionality. Identify available interactions and potential defects. Validate observable behavior where possible and produce reproducible QA findings. Do not authenticate, publish comments, or modify persistent data.' \
-  --allowed-domain demo.realworld.show \
-  --max-steps 20 \
-  --max-model-iterations 12 \
-  --max-duration-seconds 120 \
-  --output-dir runs
-```
+The bundled two-page fixture has static navigation, a hover hint, and a local disclosure control.
+It has no login, forms, external assets, or persistence endpoint.
 
-The external example requires a suitably restricted browser deployment with access to that
-host. The isolated Docker demo below deliberately has no normal external network route and
-cannot run this external example. An unreachable application, unavailable MCP server, missing
-API key, rejected model, timeout, or policy restriction must produce the corresponding actual
-failure or partial result. No live external success is implied by this documentation.
-
-Use `--requirement '...'` and repeated `--context '...'` flags for optional task context. Use
-`uv run qa-browser run --help` for the complete CLI. `OPENAI_MODEL` is configurable; the default
-`gpt-4.1-mini` is a candidate tool-capable model, not a guarantee of availability to your account.
-An authenticated run is required to verify availability and structured-output support.
-
-GPT-5.6 Sol/Luna automatically use the Responses API with `medium` reasoning. To make the
-API choice explicit, add `--model-api responses` to `run` or `check-model`. For example:
-
-```bash
-uv run qa-browser check-model --model gpt-5.6-sol --model-api responses --reasoning-effort medium
-```
-
-GPT-6 Astra, Sol, Luna and GPT-6.1 Sol also select Responses automatically. Astra requires this
-API for function calling; `--reasoning-effort medium` is supported. For example:
-
-```bash
-uv run qa-browser check-model --model gpt-6-astra --model-api responses --reasoning-effort medium
-```
-
-The asynchronous application interface is also independently usable:
-
-```python
-from browser_exploration import (
-    BrowserExplorationResult,
-    BrowserExplorationTask,
-    BrowserExplorer,
-)
-from browser_exploration.explorer import AutonomousBrowserExplorer
-
-explorer: BrowserExplorer = AutonomousBrowserExplorer()
-
-
-async def explore_article() -> BrowserExplorationResult:
-    return await explorer.explore(
-        BrowserExplorationTask(
-            url="https://demo.realworld.show/article/agentic-qa-article-18db9f7677",
-            objective="Explore observable article behavior without authentication or data changes.",
-            max_steps=20,
-        )
-    )
-```
-
-This uses the same environment configuration and safety prerequisites as the CLI. Application
-callers receive a structured result on browser/model failure or cancellation, and terminal
-results are written to the run directory when storage is writable. Inspect `result.status`; a returned result does not
-imply successful completion.
-
-## Reproduce the local MCP smoke test
-
-The bundled fixture has static navigation, a hover hint, and a local disclosure control. It has
-no login, forms, external assets, or persistence endpoint. It is independent of any company app.
-
-The standalone Docker example uses the official MCP image and a static Python HTTP server:
+The Compose example runs MCP and a static server:
 
 ```bash
 docker compose -f examples/browser_exploration/compose.yaml up -d
@@ -170,149 +93,138 @@ QA_BROWSER_LIVE_MCP=1 uv run pytest \
   tests/integration/browser_exploration/test_live_mcp.py -v
 ```
 
-Wait for `check` to succeed before running the test. The MCP and demo share a network namespace,
-so both the host Python client and the browser use `http://127.0.0.1:8765/`. Only loopback ports
-8931 and 8765 are published. An `internal: true` Docker network prevents normal external routing;
-this is a controlled demo configuration, not a hardened production boundary against access to
-the Docker host. Do not put untrusted applications or privileged services on this demo network.
-MCP output uses an ephemeral tmpfs. The example does not modify other Docker Compose services.
-Image download and Docker runtime availability must be verified on the deployment host.
+Wait for `check` to succeed. The browser and fixture share a network namespace, so the host Python
+client and browser can both use `http://127.0.0.1:8765/`. Only loopback ports 8931 and 8765 are
+published. The internal Docker network prevents normal external routing but is not a hardened
+boundary against the Docker host. Keep untrusted applications and privileged services off this
+demo network. Its image tags need deployment-specific pinning; its sandbox exception is specific
+to the controlled demo. MCP output is ephemeral tmpfs.
 
-The live integration test requires no model API key. It navigates to the fixture, reads an
-accessibility snapshot, navigates to its details page, and checks another snapshot in the same
-MCP session. It validates transport and browser continuity; it does not claim autonomous LLM
-quality. `QA_BROWSER_LIVE_URL` may override the fixture URL, but the test accepts only loopback
-HTTP hosts and requires the bundled fixture content. Without `QA_BROWSER_LIVE_MCP=1`, it skips
-even when running the complete pytest suite.
+The live test needs no model key. It navigates and snapshots both fixture pages in one session.
+It checks transport continuity, not autonomous model quality. `QA_BROWSER_LIVE_URL` accepts only
+loopback HTTP hosts and must still serve the bundled content. Without `QA_BROWSER_LIVE_MCP=1`,
+the test skips even when the full suite is selected.
 
-For the full autonomous agent on this controlled demo:
-
-```bash
-BROWSER_NETWORK_RESTRICTED=true BROWSER_ALLOW_PRIVATE_NETWORK=true \
-uv run qa-browser run \
-  --url http://127.0.0.1:8765/ \
-  --goal 'Explore the static article and its read-only links. Verify observed navigation and report unsupported or unresolved interactions. Do not modify data.' \
-  --max-steps 12 --max-model-iterations 8 --max-duration-seconds 90
-
-docker compose -f examples/browser_exploration/compose.yaml down
-```
-
-Alternatively, serve the fixture on the same host as a native MCP process:
+Alternatively, serve the fixture alongside a separately started native MCP process:
 
 ```bash
 python -m http.server 8765 --bind 127.0.0.1 --directory examples/browser_exploration
 ```
 
-Use that native option only in a controlled environment with independently enforced browser
-restrictions. The Python server is a fixture host, not a second browser automation engine.
+The native option still needs independently enforced browser restrictions. The static HTTP server
+is the application fixture, not a browser automation engine. Image downloads and Docker/browser
+availability must be checked on the deployment host; this guide does not claim a new live check.
+
+## Run an exploration
+
+After the fixture and external controls are ready, configure credentials through the environment
+or an untracked `.env`. Do not put actual keys in commands or committed examples.
+
+```bash
+export OPENAI_MODEL=YOUR_APPROVED_MODEL
+# Supply OPENAI_API_KEY through your environment or secret manager.
+# Attest only after independently enforcing the network controls above.
+export BROWSER_NETWORK_RESTRICTED=true
+
+BROWSER_ALLOW_PRIVATE_NETWORK=true uv run qa-browser run \
+  --url http://127.0.0.1:8765/ \
+  --goal 'Explore the static article and its read-only links. Report observed navigation and unresolved interactions without changing data.' \
+  --allowed-domain 127.0.0.1 \
+  --max-steps 12 --max-model-iterations 8 --max-duration-seconds 90 \
+  --output-dir runs
+```
+
+For another authorized target, provide its trusted URL and exact allowed hosts. The isolated demo
+has no normal external route and cannot be used as a general public-site exploration setup.
+`--requirement` and repeated `--context` flags add optional reference data; `run --help` lists all
+options. They do not grant permissions.
+
+Direct Python callers use `BrowserExplorer.explore(task)` as documented in the
+[V1 contract](../contracts/browser_exploration_v1.md). Construct explicit task limits and run-local
+settings; Settings defaults are not automatically copied into independently constructed tasks.
+Direct Settings construction does not load `.env` for you. Inspect returned status, including
+`cancelled`, and handle task-validation or artifact-storage exceptions at the caller boundary.
+
+Shut down the controlled demo when finished:
+
+```bash
+docker compose -f examples/browser_exploration/compose.yaml down
+```
 
 ## Configuration
 
-The CLI loads `.env` through `python-dotenv` without replacing existing process environment
-values; copy the relevant entries from `.env.example` or export them in your shell. Direct Python
-callers of `Settings` use the process environment and may load `.env` themselves. CLI budget flags
-override environment defaults.
+The CLI loads `.env` without replacing exported variables. Explicit model/API/reasoning options
+override environment settings. `--model` overrides `OPENAI_MODEL` and `BROWSER_MODEL`; the parent
+workflow's `LLM_MODEL` does not configure this package. CLI budget flags override Settings defaults
+when constructing the actual task.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | unset | Required only for actual model calls |
-| `OPENAI_MODEL` | `gpt-4.1-mini` | Configurable ChatOpenAI model |
-| `BROWSER_MODEL_API` | `auto` | Responses for GPT-5.6 Sol/Luna and supported GPT-6 models, Chat Completions otherwise; override with `--model-api` |
-| `BROWSER_REASONING_EFFORT` | model dependent | `medium` for GPT-5.6 Sol/Luna, omitted otherwise; override with `--reasoning-effort` |
-| `PLAYWRIGHT_MCP_URL` | `http://127.0.0.1:8931/mcp` | Streamable HTTP endpoint; remote endpoints require HTTPS |
-| `BROWSER_OUTPUT_DIR` | `runs` | Parent directory for run artifacts |
-| `BROWSER_MAX_STEPS` | `30` | Maximum actual browser tool calls, including initial navigation and snapshot |
-| `BROWSER_MAX_MODEL_ITERATIONS` | `20` | Maximum model requests |
-| `BROWSER_MAX_DURATION_SECONDS` | `120` | Overall execution time budget |
-| `BROWSER_TOOL_TIMEOUT_SECONDS` | `20` | Individual browser tool timeout |
-| `BROWSER_MAX_RECENT_OBSERVATIONS` | `5` | Recent observations considered for each decision |
-| `BROWSER_MAX_OBSERVATION_CHARS` | `6000` | Per-observation text cap |
-| `BROWSER_MAX_CONTEXT_CHARS` | `18000` | Message-content character budget |
-| `BROWSER_RETAIN_RAW_EVIDENCE` | `false` | Explicit opt-in for separate raw evidence artifacts |
-| `BROWSER_NETWORK_RESTRICTED` | `false` | Attestation of external safety controls |
-| `BROWSER_ALLOW_PRIVATE_NETWORK` | `false` | Allow authorized private/local destinations |
+| `OPENAI_API_KEY` | unset | Required for actual model calls, not MCP checks or schema export |
+| `OPENAI_MODEL` / `BROWSER_MODEL` | `gpt-4.1-mini` | Configured decision model; account access is not guaranteed |
+| `BROWSER_MODEL_API` | `auto` | API mode; explicit `--model-api` overrides it |
+| `BROWSER_REASONING_EFFORT` | unset | Optional effort; effective model-specific defaults come from Settings |
+| `PLAYWRIGHT_MCP_URL` / `BROWSER_MCP_URL` | `http://127.0.0.1:8931/mcp` | Streamable HTTP endpoint; non-loopback endpoints require HTTPS |
+| `BROWSER_OUTPUT_DIR` | `runs` | Parent directory for artifacts |
+| `BROWSER_MAX_STEPS` | `30` | Attempted browser calls, including bootstrap and automatic snapshots |
+| `BROWSER_MAX_MODEL_ITERATIONS` | `20` | Model requests, including corrections and finish decisions |
+| `BROWSER_MAX_DURATION_SECONDS` | `120` | Cooperative async run budget |
+| `BROWSER_TOOL_TIMEOUT_SECONDS` | `20` | Individual browser operation timeout |
+| `BROWSER_MAX_RECENT_OBSERVATIONS` | `5` | Recent observations considered for context |
+| `BROWSER_MAX_OBSERVATION_CHARS` | `6000` | Bounded observation/context entry text |
+| `BROWSER_MAX_CONTEXT_CHARS` | `18000` | Selected-message characters; tool schemas have a separate cap |
+| `BROWSER_RETAIN_RAW_EVIDENCE` | `false` | Explicit raw payload retention |
+| `BROWSER_NETWORK_RESTRICTED` | `false` | Required external-control attestation |
+| `BROWSER_ALLOW_PRIVATE_NETWORK` | `false` | Separate private/local target permission |
 | `BROWSER_LANGSMITH_ENABLED` | `false` | Explicit tracing opt-in |
 
-For LangSmith, also configure `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and the standard
-LangSmith tracing environment. Tracing may send selected browser content and objectives to the
-tracing service; enable it only for approved data. Default runs disable model tracing.
+For exact model-name routing and effective reasoning defaults, see
+[`Settings.effective_model_api` and `effective_reasoning_effort`](../../src/browser_exploration/config.py).
+These are implementation rules, not provider capability or availability guarantees. Set only
+options supported by the selected model and diagnose them with `check-model`; rejected settings
+never trigger a silent model/API/reasoning fallback.
 
-## Results, evidence, and schemas
+LangSmith also uses `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and its tracing environment. Selected
+application content and objectives may be exported when tracing is enabled; enable it only for
+approved data. Default runs disable model tracing.
 
-Each run writes a unique `runs/<run_id>/` directory:
+## Results, evidence, and diagnostics
+
+With writable storage, a run records the following beneath its unique output directory:
 
 ```text
-result.json          # BrowserExplorationResult, schema_version "1.0"
-trajectory.jsonl     # One serialized BrowserObservation per recorded tool result
-metrics.json         # ExecutionMetrics
-evidence/            # Separate retained raw text/binary files, when opted in
+<output_dir>/<run_id>/
+  run_config.json     # Allowlisted model/task configuration, excluding credentials
+  decisions.jsonl     # Decisions, rejections, and model errors when recorded
+  trajectory.jsonl    # Bounded observations from attempted browser calls
+  result.json         # BrowserExplorationResult, schema_version "1.0"
+  metrics.json        # ExecutionMetrics
+  evidence/           # Optional separately retained payloads and images
 ```
 
-Generate the authoritative Pydantic JSON schemas using:
+Start with `result.json` status/errors/metrics, then compare decisions with the trajectory's
+executed actions. Default-policy link clicks can be rewritten as navigation. Provider model names
+are retained on decision/error events when available; a current environment file cannot recover
+missing historical attribution. If setup succeeds but the first model call fails, use
+`check-model`; if `check` fails, inspect the endpoint, server, installed browser, and tool schemas.
+
+`completed` means the model chose to finish, not that the objective passed. Evidence-ID and
+reproduction checks establish traceability, not semantic truth. Pixels are unavailable to the
+decision model. Missing provider usage remains `null`, and operation counts are not functional
+coverage. The [contract](../contracts/browser_exploration_v1.md) defines every status and field.
+
+Raw retention defaults to off; bounded summaries and redacted action metadata remain in the
+trajectory. `retained=false` does not make the original payload recoverable. Pattern redaction is
+best effort and does not redact pixels. Use approved sanitized data and independently manage MCP
+server files, browser profiles, logs, and retention. Storage failure can leave partial files or
+raise before a valid result is returned.
+
+Export schemas without external services:
 
 ```bash
 uv run qa-browser schemas --output-dir docs/browser_exploration/schemas
 ```
 
-`result.json` records the objective and target, real terminal status, timestamps, verified
-behaviors, findings, unresolved questions, evidence references, observed actions, metrics, and
-errors. Status is one of `completed`, `step_limit`, `model_limit`, `timeout`, `cancelled`,
-`blocked`, or `failed`; budget exhaustion is never called completed. Findings distinguish
-`confirmed`, `potential`, and `inconclusive`. Confirmed records require evidence references to
-successful observations and reproduction steps; unknown or failed references are downgraded to
-inconclusive. Screenshot-only evidence cannot confirm visual findings because V1's decision model
-receives text observations, not pixels. These provenance checks do not independently establish
-semantic correctness. Review the cited observation and reproduction steps before accepting a finding.
-
-Metrics include duration, actual browser calls and successes/failures, model calls, provider
-input/output/total token usage, findings count, and verified behavior count. Missing token
-usage is `null`; no coverage percentage or fabricated token estimate is generated.
-
-Raw evidence retention is off by default. Trajectory entries still contain bounded, redacted
-observation summaries and action metadata. Evidence references describe whether a payload was
-retained; absent payloads cannot be reconstructed from an identifier. Use
-`--retain-raw-evidence` only for approved data when full reproduction evidence is needed.
-Screenshots are binary artifacts, never inline base64 in JSON. Redaction removes known secret
-patterns and sensitive argument fields, but cannot reliably identify every secret in arbitrary
-page text or pixels. Screenshots cannot be text-redacted. Use sanitized test data.
-
-Retention here controls **client-side** artifacts. MCP server snapshots, browser profiles,
-downloads, diagnostic logs, and screenshots have independent retention policies. Configure
-those separately; disabling client retention does not delete remote files. Never mount a
-personal browser profile or unrelated credentials into the demo server.
-
-## Validation and limitations
-
-```bash
-uv run pytest
-uv run ruff check .
-uv run mypy .
-```
-
-Unit tests use fake models and MCP sessions and need no internet, OpenAI, browser, or application.
-The opt-in live test above is the transport smoke test. A successful fake run demonstrates
-control flow and serialization, not real browser actions or application defects.
-
-See [testing.md](testing.md) for the expanded negative-case suite, measured line and branch
-coverage, offline isolation, and reproducible coverage commands.
-
-To exercise the complete graph and artifact writer without external services:
-
-```bash
-uv run python examples/browser_exploration/mock_run.py --output-dir runs/mock
-```
-
-The example injects a fake MCP session and fake model into the real explorer. Its objective,
-observations, and stdout identify it as `MOCK ONLY`; its token counts remain `null`. It writes
-the same `result.json`, `trajectory.jsonl`, and `metrics.json` contracts used by live runs.
-
-V1 uses deterministic context selection and truncation, not summarization or full-history
-compression. It may miss page content beyond the text cap. Its action restrictions intentionally
-limit exploration, and confirmed findings still require human review for QA correctness.
-Application-specific authorization, authentication, network enforcement, secret detection,
-functional coverage measurement, and integration into existing workflow nodes are outside V1.
-
-Reference APIs: [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview),
-[LangChain MCP](https://docs.langchain.com/oss/python/langchain/mcp),
-[langchain-mcp-adapters](https://github.com/langchain-ai/langchain-mcp-adapters), and
-[Microsoft Playwright MCP](https://github.com/microsoft/playwright-mcp).
+For the network-free mock, unit checks, coverage commands, and opt-in integration scope, use the
+[testing guide](testing.md). For editor profiles and breakpoints, use the
+[debugging guide](../debugging.md).
