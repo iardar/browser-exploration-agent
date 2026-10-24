@@ -53,6 +53,9 @@ The Python Playwright package is not a client dependency. Install/run the compat
 the MCP server. The `qa-browser` command name is retained from Agentic QA; use a dedicated virtual
 environment when both distributions are installed on one machine.
 
+VS Code includes three debug profiles: offline demonstration, live browser exploration, and unit
+tests. See the [debugging guide](docs/debugging.md) for setup, prerequisites, and breakpoint locations.
+
 ## Run modes
 
 ```bash

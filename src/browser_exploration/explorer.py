@@ -24,10 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 class BrowserConnection(Protocol):
-    def connect(self) -> AbstractAsyncContextManager[BrowserSession]: ...
+    """Describe how to open and close a browser session, including a fake in tests."""
+
+    def connect(self) -> AbstractAsyncContextManager[BrowserSession]:
+        """Return an async context manager that keeps one session open inside its block."""
+        ...
 
 
 class AutonomousBrowserExplorer:
+    """Own the complete lifetime of one exploration request.
+
+    The CLI or a host adapter calls ``explore``. This service creates the run state,
+    opens one MCP session, runs the three graph nodes, and saves the final result.
+    MCP (Model Context Protocol) connects this Python app to the browser tool server.
+    """
+
     def __init__(
         self,
         settings: Settings | None = None,
@@ -35,11 +46,19 @@ class AutonomousBrowserExplorer:
         connection: BrowserConnection | None = None,
         model: DecisionModel | None = None,
     ) -> None:
+        """Use supplied browser/model implementations, or choose the default adapters."""
         self.settings = settings or Settings()
         self.connection = connection or MCPConnection(self.settings)
         self.model = model
 
     async def explore(self, task: BrowserExplorationTask) -> BrowserExplorationResult:
+        """Run a task with its own state, limits, session, and artifact directory.
+
+        Operational failures inside the guarded run become result statuses. Caught
+        cancellation becomes ``cancelled`` too, so callers must inspect the result.
+        Invalid task data and artifact setup/final-write failures can still raise.
+        A ``completed`` result means the model stopped; the host assesses the goal.
+        """
         # Copy task: neither caller nor model can change this run's budgets in place.
         task = BrowserExplorationTask.model_validate(task.model_dump())
         run_id = f"{datetime.now(UTC):%Y%m%dT%H%M%S}-{uuid4().hex[:12]}"
@@ -60,6 +79,7 @@ class AutonomousBrowserExplorer:
                 "model_api": self.settings.effective_model_api,
             },
         )
+        # Each graph node reads and updates this run's shared working dictionary.
         state: ExplorationState = {
             "task": task,
             "run_id": run_id,
@@ -89,10 +109,12 @@ class AutonomousBrowserExplorer:
                 with tracing_context(enabled=self.settings.langsmith_enabled):
                     async with asyncio.timeout(task.max_duration_seconds):
                         async with self.connection.connect() as session:
+                            # Every graph turn uses this same initialized browser session.
                             nodes.session = session
                             await graph.ainvoke(
                                 state,
                                 config={
+                                    # Allow node visits for setup and decision-only turns too.
                                     "recursion_limit": task.max_steps
                                     + task.max_model_iterations
                                     + 8,
@@ -113,6 +135,7 @@ class AutonomousBrowserExplorer:
         except Exception as exc:
             # Persist operational failures, without raw exception text that may contain secrets.
             nodes.stop("failed", "unexpected_error", f"Exploration failed ({type(exc).__name__})")
+        # Session cleanup has finished. Rebuild the report so cleanup errors appear in it.
         nodes.finalize_report(nodes.latest)
         result = nodes.latest["result"]
         assert result is not None

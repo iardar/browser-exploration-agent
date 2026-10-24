@@ -96,7 +96,7 @@ class MockModel:
         )
 
 
-async def demonstrate(output_dir: Path) -> None:
+async def demonstrate(output_dir: Path, max_duration_seconds: int = 10) -> None:
     # This attestation applies only to the in-process fake, which has no network access.
     explorer = AutonomousBrowserExplorer(
         Settings(output_dir=output_dir, network_restricted=True),
@@ -109,7 +109,7 @@ async def demonstrate(output_dir: Path) -> None:
             objective="MOCK ONLY: validate graph, evidence, termination and JSON reports",
             max_steps=5,
             max_model_iterations=3,
-            max_duration_seconds=10,
+            max_duration_seconds=max_duration_seconds,
         )
     )
     print(
@@ -130,4 +130,11 @@ async def demonstrate(output_dir: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("runs/mock"))
-    asyncio.run(demonstrate(parser.parse_args().output_dir))
+    parser.add_argument(
+        "--max-duration-seconds",
+        type=int,
+        default=10,
+        help="Run duration budget; increase when stepping through the debugger",
+    )
+    args = parser.parse_args()
+    asyncio.run(demonstrate(args.output_dir, args.max_duration_seconds))

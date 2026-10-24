@@ -16,6 +16,7 @@ class TokenAccumulator:
     _unknown: set[str] = field(default_factory=set)
 
     def add(self, usage_metadata: Mapping[str, Any] | None) -> None:
+        """Add one call's valid provider counts and mark missing fields as unknown."""
         self.calls += 1
         for key in self._totals:
             value = usage_metadata.get(key) if usage_metadata else None
@@ -25,6 +26,7 @@ class TokenAccumulator:
                 self._unknown.add(key)
 
     def counts(self) -> dict[str, int | None]:
+        """Return known totals, or None when there were no calls or usage was incomplete."""
         return {
             key: total if self.calls and key not in self._unknown else None
             for key, total in self._totals.items()

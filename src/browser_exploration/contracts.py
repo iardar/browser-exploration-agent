@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# Run status describes why execution stopped. "completed" is not an objective pass verdict.
 RunStatus = Literal[
     "completed", "step_limit", "model_limit", "timeout", "cancelled", "blocked", "failed"
 ]
@@ -20,23 +21,28 @@ class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+# Reference text and its source label; neither grants instructions or extra permissions.
 class ContextSnippet(Contract):
     source: str = Field(min_length=1, max_length=1_000)
     text: str = Field(min_length=1, max_length=1_000_000)
 
 
+# Public input from the CLI or a host adapter: target, goal, limits, and permissions.
+# Keep these class explanations as comments: Pydantic class docstrings enter JSON schemas.
 class BrowserExplorationTask(Contract):
     url: str = Field(min_length=1, max_length=8_192)
     objective: str = Field(min_length=1, max_length=100_000)
     requirement_text: str | None = Field(default=None, max_length=1_000_000)
     context_snippets: list[ContextSnippet] = Field(default_factory=list, max_length=100)
     allowed_domains: list[str] = Field(default_factory=list, max_length=100)
+    # Browser-call limits include the initial navigation and snapshot, not just model actions.
     max_steps: int = Field(default=30, ge=1, le=1_000)
     max_model_iterations: int = Field(default=20, ge=1, le=1_000)
     max_duration_seconds: int = Field(default=120, ge=1, le=86_400)
     max_recent_observations: int = Field(default=5, ge=1, le=100)
     max_observation_chars: int = Field(default=6_000, ge=1, le=1_000_000)
     max_context_chars: int = Field(default=18_000, ge=4_096, le=2_000_000)
+    # Each permission is separate; enabling one does not bypass the remaining policy checks.
     allow_mutations: bool = False
     allow_form_input: bool = False
     allow_form_submission: bool = False
@@ -44,6 +50,7 @@ class BrowserExplorationTask(Contract):
     @field_validator("objective")
     @classmethod
     def meaningful_objective(cls, value: str) -> str:
+        """Reject a blank objective and remove surrounding whitespace."""
         if not value.strip():
             raise ValueError("objective must contain non-whitespace text")
         return value.strip()
@@ -51,6 +58,7 @@ class BrowserExplorationTask(Contract):
     @field_validator("url")
     @classmethod
     def http_url(cls, value: str) -> str:
+        """Check URL shape and embedded credentials; domain policy is checked later."""
         if any(ord(character) < 32 for character in value) or "\\" in value:
             raise ValueError("URL must not contain control characters or backslashes")
         try:
@@ -67,12 +75,13 @@ class BrowserExplorationTask(Contract):
     @field_validator("allowed_domains")
     @classmethod
     def exact_domains(cls, values: list[str]) -> list[str]:
+        """Normalize and deduplicate exact hostnames without accepting wildcard access."""
         normalized: list[str] = []
         for value in values:
             domain = value.strip().lower().rstrip(".")
             if not domain or any(character in domain for character in "/@?#*\\ "):
                 raise ValueError("allowed_domains must contain exact hostnames, without wildcards")
-            # IPv6 addresses are accepted as exact hostnames; safety policy resolves IP ranges.
+            # IPv6 addresses are accepted; safety policy checks IP ranges without DNS lookup.
             if ":" not in domain:
                 try:
                     domain = domain.encode("idna").decode("ascii")
@@ -84,6 +93,7 @@ class BrowserExplorationTask(Contract):
 
     @model_validator(mode="after")
     def normalize_permissions_and_target_domain(self) -> BrowserExplorationTask:
+        """Let submission imply input permission and default domains to the target host."""
         if self.allow_form_submission:
             self.allow_form_input = True
         if not self.allowed_domains:
@@ -93,6 +103,7 @@ class BrowserExplorationTask(Contract):
         return self
 
 
+# One attempted browser call and its bounded text summary, including failed attempts.
 class BrowserObservation(Contract):
     id: str
     url: str
@@ -104,6 +115,8 @@ class BrowserObservation(Contract):
     error: bool = False
 
 
+# A model-reported issue with expected/actual behavior, steps, and evidence references.
+# Its classification and confidence are model claims, not independent measurements.
 class BrowserFinding(Contract):
     id: str
     title: str = Field(min_length=1)
@@ -118,16 +131,20 @@ class BrowserFinding(Contract):
 
     @model_validator(mode="after")
     def confirmed_requires_evidence(self) -> BrowserFinding:
+        """Require evidence IDs for confirmed findings; the executor checks those IDs later."""
         if self.verification_status == "confirmed" and not self.evidence_ids:
             raise ValueError("confirmed findings require evidence identifiers")
         return self
 
 
+# A model-reported behavior whose evidence IDs still need executor provenance checks.
 class VerifiedBehavior(Contract):
     description: str = Field(min_length=1)
     evidence_ids: list[str] = Field(min_length=1)
 
 
+# Connect an observation to evidence that may have been retained as a separate file.
+# A missing path or retained=False means this record does not provide the raw payload.
 class EvidenceReference(Contract):
     id: str
     observation_id: str
@@ -136,11 +153,14 @@ class EvidenceReference(Contract):
     retained: bool = False
 
 
+# A diagnostic code and safe message that callers can inspect alongside the run status.
 class RunError(Contract):
     code: str
     message: str
 
 
+# Measured operation counts and provider token usage; unknown token totals stay None.
+# These counters describe execution, not how much application behavior was tested.
 class ExecutionMetrics(Contract):
     duration_seconds: float = Field(default=0, ge=0)
     browser_tool_calls: int = Field(default=0, ge=0)
@@ -154,6 +174,8 @@ class ExecutionMetrics(Contract):
     verified_behaviors_count: int = Field(default=0, ge=0)
 
 
+# Public output kept intact by the host adapter, including partial results and uncertainty.
+# The full observation history lives in trajectory.jsonl rather than this result object.
 class BrowserExplorationResult(Contract):
     schema_version: Literal["1.0"] = "1.0"
     run_id: str
@@ -172,6 +194,8 @@ class BrowserExplorationResult(Contract):
 
 
 class BrowserExplorer(Protocol):
+    """The public interface a host adapter depends on instead of internal graph details."""
+
     async def explore(self, task: BrowserExplorationTask) -> BrowserExplorationResult:
         """Explore a task and return its actual terminal status and evidence."""
         ...

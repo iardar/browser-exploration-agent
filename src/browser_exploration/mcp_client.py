@@ -21,13 +21,14 @@ __all__ = ["BrowserSession", "MCPConnection", "MCPError", "check_connection"]
 
 
 def _leaf_errors(error: BaseException) -> list[BaseException]:
+    """Flatten grouped async errors so their individual causes can be inspected."""
     if isinstance(error, BaseExceptionGroup):
         return [leaf for child in error.exceptions for leaf in _leaf_errors(child)]
     return [error]
 
 
 def _tool_error(error: ToolException) -> MCPError:
-    """Preserve recognized operational causes without echoing arbitrary server data."""
+    """Translate known browser/server errors without copying raw server output."""
     text = str(error)
     if any(
         marker in text
@@ -47,10 +48,13 @@ def _tool_error(error: ToolException) -> MCPError:
 
 @dataclass
 class _ConnectedSession:
+    """Keep discovered tool bindings attached to the session that created them."""
+
     tools: dict[str, BaseTool]
     capabilities: dict[str, str]
 
     async def call(self, name: str, args: dict[str, Any]) -> Any:
+        """Invoke one supported tool and translate transport/server failures safely."""
         tool = self.tools.get(name)
         if tool is None:
             raise MCPError("unsupported_tool", "Browser tool is not in the supported catalog.")
@@ -72,11 +76,26 @@ class _ConnectedSession:
 
 
 class MCPConnection:
+    """Open the browser tool server connection used for a whole exploration run.
+
+    Tool calls share one initialized session so navigation and later snapshots use
+    the same browser context. This adapter connects to an independently started
+    MCP server; it does not start a browser or reconnect and replay failed actions.
+    """
+
     def __init__(self, settings: Settings) -> None:
+        """Remember the endpoint and timeout settings without connecting yet."""
         self.settings = settings
 
     @asynccontextmanager
     async def connect(self) -> AsyncIterator[BrowserSession]:
+        """Open, initialize, discover tools, and yield one usable browser session.
+
+        The async context manager keeps the connection open while its caller runs
+        the graph, then closes it on exit. Connection setup, calls, and cleanup
+        stay in the same async task as required by the transport's cancel scopes.
+        Errors are translated without exposing arbitrary server response text.
+        """
         client = MultiServerMCPClient(
             {
                 "playwright": {
@@ -106,6 +125,7 @@ class MCPConnection:
             raise
         except Exception as exc:
             if body_error is not None:
+                # Session cleanup can wrap a graph error; preserve the original cause.
                 raise body_error from None
             for leaf in _leaf_errors(exc):
                 if isinstance(leaf, MCPError):
@@ -127,6 +147,7 @@ class MCPConnection:
 
 
 def _versions() -> dict[str, str | None]:
+    """Report installed transport-package versions for connection diagnostics."""
     packages: dict[str, str | None] = {}
     for package in ("langchain-mcp-adapters", "mcp"):
         try:

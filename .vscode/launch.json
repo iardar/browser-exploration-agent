@@ -1,0 +1,111 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Browser: Offline demo",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            },
+            "program": "${workspaceFolder}/examples/browser_exploration/mock_run.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env.example",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1",
+                "BROWSER_TOOL_TIMEOUT_SECONDS": "120",
+                "BROWSER_LANGSMITH_ENABLED": "false",
+                "LANGSMITH_TRACING": "false",
+                "LANGCHAIN_TRACING_V2": "false"
+            },
+            "args": [
+                "--output-dir",
+                "${workspaceFolder}/runs/debug/mock",
+                "--max-duration-seconds",
+                "600"
+            ]
+        },
+        {
+            "name": "Browser: Explore target (live)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            },
+            "module": "browser_exploration.cli",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1",
+                "BROWSER_TOOL_TIMEOUT_SECONDS": "120"
+            },
+            "args": [
+                "run",
+                "--url",
+                "${input:browserTargetUrl}",
+                "--goal",
+                "${input:explorationGoal}",
+                "--max-steps",
+                "20",
+                "--max-model-iterations",
+                "12",
+                "--max-duration-seconds",
+                "600",
+                "--output-dir",
+                "${workspaceFolder}/runs/debug/browser"
+            ]
+        },
+        {
+            "name": "Tests: Unit tests",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "windows": {
+                "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+            },
+            "module": "pytest",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env.example",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PYTHONUNBUFFERED": "1",
+                "BROWSER_LANGSMITH_ENABLED": "false",
+                "LANGSMITH_TRACING": "false",
+                "LANGCHAIN_TRACING_V2": "false",
+                "QA_BROWSER_LIVE_MCP": "0"
+            },
+            "args": [
+                "tests/unit",
+                "-vv",
+                "-s",
+                "--maxfail=1",
+                "-n",
+                "0"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "browserTargetUrl",
+            "type": "promptString",
+            "description": "Authorized starting URL for browser exploration",
+            "default": "https://example.com/"
+        },
+        {
+            "id": "explorationGoal",
+            "type": "promptString",
+            "description": "Exploration objective",
+            "default": "Explore public navigation and report findings supported by observations."
+        }
+    ]
+}

@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from .contracts import BrowserFinding, VerifiedBehavior
 
 
+# A model's proposed tool name and arguments. This record does not execute the tool.
 class Action(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +23,7 @@ class Action(BaseModel):
 
     @model_validator(mode="after")
     def bounded_arguments(self) -> Action:
+        """Require JSON-compatible arguments small enough to validate and record."""
         try:
             arguments = json.dumps(self.arguments, ensure_ascii=False, allow_nan=False)
         except (TypeError, ValueError) as exc:
@@ -31,6 +33,8 @@ class Action(BaseModel):
         return self
 
 
+# One model reply: choose an action or finish, optionally adding claims and questions.
+# Use comments for model descriptions to avoid changing the provider-facing JSON schema.
 class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -42,6 +46,7 @@ class Decision(BaseModel):
 
     @model_validator(mode="after")
     def exactly_one_next_step(self) -> Decision:
+        """Reject replies that choose both an action and completion, or neither."""
         if self.done == (self.action is not None):
             raise ValueError("Choose one action or set done=true, exclusively")
         if any(len(question) > 2000 for question in self.unresolved_questions):
@@ -51,6 +56,8 @@ class Decision(BaseModel):
 
 @dataclass(frozen=True)
 class DecisionResponse:
+    """Bundle a parsed decision with any token counts and model name the provider supplied."""
+
     decision: Decision
     usage: dict[str, int] | None = None
     provider_model: str | None = None
@@ -68,6 +75,7 @@ class ModelError(Exception):
         diagnostics: dict[str, Any] | None = None,
         provider_model: str | None = None,
     ) -> None:
+        """Keep safe diagnostics and available usage without storing raw provider output."""
         super().__init__(message)
         self.code = code
         self.usage = usage
@@ -76,7 +84,7 @@ class ModelError(Exception):
 
 
 def validation_diagnostics(error: Any) -> dict[str, Any]:
-    """Retain schema locations/types without raw output, exception text, or rejected values."""
+    """Keep invalid field locations and error types without copying rejected values."""
     allowed_fields = set(Decision.model_fields) | set(Action.model_fields)
     allowed_fields |= set(BrowserFinding.model_fields) | set(VerifiedBehavior.model_fields)
     for _ in range(4):
@@ -98,6 +106,7 @@ def validation_diagnostics(error: Any) -> dict[str, Any]:
 
 
 def _provider_model(raw: Any) -> str | None:
+    """Read a bounded model name from provider response metadata when available."""
     if not isinstance(raw, AIMessage):
         return None
     name = raw.response_metadata.get("model_name", raw.response_metadata.get("model"))
@@ -105,7 +114,7 @@ def _provider_model(raw: Any) -> str | None:
 
 
 def provider_error(error: Exception) -> ModelError:
-    """Expose actionable provider metadata without exception bodies, requests, or credentials."""
+    """Convert a provider exception into a safe message and selected diagnostic fields."""
     current = error
     for _ in range(4):
         if (
@@ -123,6 +132,7 @@ def provider_error(error: Exception) -> ModelError:
     status = getattr(error, "status_code", None)
     if isinstance(status, int) and 100 <= status <= 599:
         details["http_status"] = status
+    # Copy only known diagnostic names; arbitrary exception fields may contain secrets.
     allowed_codes = {
         "model_not_found",
         "invalid_api_key",
@@ -203,23 +213,36 @@ def provider_error(error: Exception) -> ModelError:
 
 
 class DecisionModel(Protocol):
+    """Allow the graph to use a real decision model or a deterministic fake in tests."""
+
     async def decide(
         self, messages: list[BaseMessage], tools: list[dict[str, Any]]
-    ) -> DecisionResponse: ...
+    ) -> DecisionResponse:
+        """Propose one next step from the selected messages and available tool catalog."""
+        ...
 
 
 class ModelSettings(Protocol):
-    @property
-    def model(self) -> str: ...
+    """Describe only the configuration values needed to construct the model adapter."""
 
     @property
-    def effective_reasoning_effort(self) -> str | None: ...
+    def model(self) -> str:
+        """Return the configured provider model name."""
+        ...
 
     @property
-    def effective_model_api(self) -> str: ...
+    def effective_reasoning_effort(self) -> str | None:
+        """Return the selected reasoning setting, or None to leave it unspecified."""
+        ...
+
+    @property
+    def effective_model_api(self) -> str:
+        """Return the provider API mode selected by configuration."""
+        ...
 
 
 def _provider_usage(raw: Any) -> dict[str, int] | None:
+    """Read provider token counts from either supported metadata layout; never estimate."""
     if not isinstance(raw, AIMessage):
         return None
     if raw.usage_metadata:
@@ -242,19 +265,22 @@ def _provider_usage(raw: Any) -> dict[str, int] | None:
 
 
 class OpenAIDecisionModel:
-    """Choose one discovered MCP action using a non-strict structured response.
+    """Ask the configured provider for one structured browser decision.
 
-    Non-strict function calling supports dynamically discovered argument objects.
-    Pydantic validates the decision, and the browser gateway independently validates
-    the selected tool and arguments. No arbitrary model tool is executed here.
+    The SDK parses the reply into a ``Decision``. Its action arguments can vary
+    with discovered tools, so provider-side strict schema matching is disabled.
+    Pydantic still checks the reply, and the executor separately authorizes the
+    chosen action. This adapter proposes actions; it never calls the browser.
     """
 
     MAX_TOOL_CATALOG_CHARS = 32_000
 
     def __init__(self, settings: ModelSettings) -> None:
+        """Configure one provider client and a parser for Decision-shaped replies."""
         try:
             self._api = settings.effective_model_api
             self._reasoning_effort = settings.effective_reasoning_effort
+            # The graph counts requests; SDK retries would hide extra provider attempts.
             options: dict[str, Any] = {
                 "model": settings.model,
                 "max_retries": 0,
@@ -276,6 +302,13 @@ class OpenAIDecisionModel:
     async def decide(
         self, messages: list[BaseMessage], tools: list[dict[str, Any]]
     ) -> DecisionResponse:
+        """Send selected context plus tool schemas and return one validated reply.
+
+        The tool catalog has its own character cap in addition to the context
+        builder's cap. Preserve provider usage when available, even if parsing
+        fails. Provider failures become safe ``ModelError`` diagnostics; the graph
+        decides whether an invalid reply gets another request within its limits.
+        """
         catalog = json.dumps(tools, ensure_ascii=False)
         if len(catalog) > self.MAX_TOOL_CATALOG_CHARS:
             raise ModelError("tool_catalog_too_large", "Discovered tool schemas exceed size limit")

@@ -162,6 +162,30 @@ flowchart LR
     Finalize --> End([END])
 ```
 
+### Reading the nodes in code
+
+A graph node is a function that reads and updates the run's shared working dictionary,
+[`ExplorationState`](../src/browser_exploration/state.py). There are exactly three graph nodes.
+The model, policy, context builder, MCP connection, and artifact store are collaborators used by
+those nodes rather than additional graph nodes.
+
+| Node | What happens in one visit | Main code and helpers |
+| --- | --- | --- |
+| `prepare_context` | Check the target URL, required context size, and network-control attestation; block the run if a prerequisite fails. | [`ExplorationNodes.prepare_context`](../src/browser_exploration/graph.py); `SafetyPolicy.validate_url`, `ContextBuilder.build` |
+| `explore_browser` | Check limits, choose one next step, and execute at most one browser call. Repeat while no terminal status is set. | [`ExplorationNodes.explore_browser`](../src/browser_exploration/graph.py); `budget_exhausted`, `next_action`, `execute_action`, `accept_findings` |
+| `finalize_report` | Build the result from accumulated evidence, findings, errors, and measured usage. | [`ExplorationNodes.finalize_report`](../src/browser_exploration/graph.py); `TokenAccumulator.counts`, `BrowserExplorationResult` |
+
+Start reading at [`AutonomousBrowserExplorer.explore`](../src/browser_exploration/explorer.py),
+which creates state and owns the session lifetime. Then read `build_graph` for node registration
+and routing, followed by the three node methods above. Supporting helpers have shorter docstrings;
+the main lifecycle and execution methods explain their steps in more detail.
+
+The router uses `status=None` to continue the loop; each action still needs its budget and policy
+checks. Any terminal status sends the run to `finalize_report`. Finalization builds a report in
+memory; the application service finalizes
+again after session cleanup and asks `ArtifactStore.save_result` to write it to disk. Model-selected
+`completed` means the loop stopped, while objective assessment remains the host's responsibility.
+
 `prepare_context` repeats the preflight checks inside the observable graph. Each
 `explore_browser` invocation performs at most one browser operation or one decision-only cycle.
 The initial two cycles navigate and obtain an accessibility snapshot without asking the model.

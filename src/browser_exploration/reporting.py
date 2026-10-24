@@ -47,6 +47,7 @@ _JWT = re.compile(r"\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b")
 
 
 def _redact_url(match: re.Match[str]) -> str:
+    """Remove embedded credentials and hide query values and fragments in a URL."""
     value = match.group()
     try:
         parsed = urlsplit(value)
@@ -64,7 +65,7 @@ def _redact_url(match: re.Match[str]) -> str:
 
 
 def redact_text(value: str) -> str:
-    """Redact familiar secrets and all URL query values, without claiming full DLP."""
+    """Hide recognized secret patterns and URL query values, not all sensitive content."""
     value = _BEARER.sub("Bearer " + _REDACTED, value)
     value = _ASSIGNMENT.sub(lambda match: match.group(1) + _REDACTED, value)
     value = _OPENAI_KEY.sub(_REDACTED, value)
@@ -72,6 +73,7 @@ def redact_text(value: str) -> str:
     value = _URL.sub(_redact_url, value)
 
     def relative_url(match: re.Match[str]) -> str:
+        """Apply URL redaction to relative links inside accessibility snapshots."""
         try:
             parsed = urlsplit(match.group(2))
             # Query values on relative snapshot links need the same handling as absolute URLs.
@@ -109,6 +111,7 @@ def redact(value: Any) -> Any:
 
 
 def _write_private(path: Path, contents: bytes, *, append: bool = False) -> None:
+    """Write an owner-only file, rejecting a final symlink where supported."""
     flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if append else os.O_TRUNC)
     flags |= getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(path, flags, 0o600)
@@ -118,11 +121,21 @@ def _write_private(path: Path, contents: bytes, *, append: bool = False) -> None
 
 
 def _json_bytes(value: Any) -> bytes:
+    """Encode readable JSON with a trailing newline and reject non-JSON number values."""
     return (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode()
 
 
 class ArtifactStore:
+    """Write inspectable files for one run under ``output_dir/run_id``.
+
+    Observation summaries and decision events are written as one JSON record per
+    line. Complete raw payloads are retained only when requested. Writes can fail
+    partway through a run; these files are an audit trail, not a resumable checkpoint
+    or a transaction that saves every file together.
+    """
+
     def __init__(self, output_dir: Path, run_id: str, retain_raw_evidence: bool = False) -> None:
+        """Create a private run directory and initialize its observation log."""
         if not _SAFE_ID.fullmatch(run_id):
             raise ValueError("run_id must be a safe filename component")
         self.directory = Path(output_dir) / run_id
@@ -173,7 +186,12 @@ class ArtifactStore:
         _write_private(self.directory / "decisions.jsonl", payload.encode(), append=True)
 
     def record(self, observation: BrowserObservation, raw: Any) -> EvidenceReference:
-        """Persist bounded observation metadata and, only when enabled, raw evidence."""
+        """Assign an evidence ID, append the observation, and return its evidence reference.
+
+        The ID is recorded even when raw retention is disabled. If retention is
+        enabled, save redacted raw data and extract images into separate files.
+        Also set ``observation.evidence_ref`` so later context can cite the same ID.
+        """
         if not _SAFE_ID.fullmatch(observation.id):
             raise ValueError("observation id must be a safe filename component")
         evidence_id = f"evidence-{observation.id}"
@@ -198,6 +216,7 @@ class ArtifactStore:
         return reference
 
     def _extract_images(self, value: Any, observation_id: str, counter: list[int]) -> Any:
+        """Replace supported base64 image blocks with file references, without pixel redaction."""
         if isinstance(value, dict):
             encoded: str | None = None
             mime_type = str(value.get("mime_type", value.get("mimeType", "image/png")))
@@ -236,6 +255,7 @@ class ArtifactStore:
         return value
 
     def save_result(self, result: BrowserExplorationResult) -> Path:
+        """Write the final result and metrics into this run's directory, then return its path."""
         if result.run_id != self.directory.name:
             raise ValueError("result run_id does not match artifact directory")
         _write_private(self.directory / "result.json", _json_bytes(redact(result)))

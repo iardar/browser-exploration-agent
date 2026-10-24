@@ -16,17 +16,24 @@ class MCPError(Exception):
     """A diagnostic safe to include in a report (never raw transport output)."""
 
     def __init__(self, code: str, message: str) -> None:
+        """Attach a stable diagnostic code to the safe message."""
         super().__init__(message)
         self.code = code
 
 
 class BrowserSession(Protocol):
+    """Describe the tools and call method exposed by one initialized browser session."""
+
     tools: dict[str, BaseTool]
+    # Map local roles such as "navigate" to the server's actual supported tool names.
     capabilities: dict[str, str]
 
-    async def call(self, name: str, args: dict[str, Any]) -> Any: ...
+    async def call(self, name: str, args: dict[str, Any]) -> Any:
+        """Execute one named tool with arguments already checked by the caller."""
+        ...
 
 
+# Accept exact known names rather than trusting a server's free-text tool descriptions.
 ALIASES: dict[str, tuple[str, ...]] = {
     "navigate": ("browser_navigate", "playwright_browser_navigate"),
     "snapshot": ("browser_snapshot", "playwright_browser_snapshot"),
@@ -43,6 +50,7 @@ ALIASES: dict[str, tuple[str, ...]] = {
     "network": ("browser_network_requests", "playwright_browser_network_requests"),
 }
 
+# These are the argument keys the app knows how to check for each capability.
 ARGUMENTS: dict[str, frozenset[str]] = {
     "navigate": frozenset({"url"}),
     "snapshot": frozenset(),
@@ -75,7 +83,7 @@ def _describe_references(properties: dict[str, Any]) -> None:
 
 
 def argument_schema(tool: BaseTool) -> dict[str, Any]:
-    """Get the actual advertised schema, excluding execution-only LC fields."""
+    """Read a tool's advertised argument schema as a dictionary."""
     schema = tool.args_schema
     if isinstance(schema, dict):
         return dict(schema)
@@ -87,6 +95,7 @@ def argument_schema(tool: BaseTool) -> dict[str, Any]:
 
 
 def _compatible(tool: BaseTool, capability: str) -> bool:
+    """Check that a known tool's required arguments and basic field types are supported."""
     schema = argument_schema(tool)
     properties = schema.get("properties", {})
     if not isinstance(properties, dict):
@@ -137,7 +146,11 @@ def _compatible(tool: BaseTool, capability: str) -> bool:
 def discovered_tools(
     tools: list[BaseTool],
 ) -> tuple[dict[str, BaseTool], dict[str, str]]:
-    """Select supported tools, requiring navigation and accessibility snapshots."""
+    """Keep only known, compatible tools from the server's advertised list.
+
+    Choose at most one tool for each local capability. Navigation and accessibility
+    snapshots are required; missing either prevents the exploration from starting.
+    """
     by_name = {tool.name: tool for tool in tools}
     selected: dict[str, BaseTool] = {}
     capabilities: dict[str, str] = {}
@@ -158,7 +171,7 @@ def discovered_tools(
 
 
 def tool_specs(session: BrowserSession) -> list[dict[str, Any]]:
-    """Expose bounded argument schemas, with local trusted capability descriptions."""
+    """Build the model's tool catalog using supported argument keys and reference hints."""
     specs = []
     for capability, name in session.capabilities.items():
         schema = argument_schema(session.tools[name])

@@ -18,11 +18,12 @@ from .state import SuccessfulAction
 
 
 def _text(value: Any) -> str:
-    """Serialize selected data without treating any of its contents as instructions."""
+    """Turn selected data into JSON text for one context section."""
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
 def _clip(value: str, limit: int) -> str:
+    """Shorten text to the character limit and mark truncation when space permits."""
     if len(value) <= limit:
         return value
     marker = " [truncated]"
@@ -32,7 +33,7 @@ def _clip(value: str, limit: int) -> str:
 
 
 class ContextLimitError(ValueError):
-    """Required authoritative context cannot be represented within the budget."""
+    """The full objective and required instructions do not fit the message budget."""
 
 
 class ContextBuilder:
@@ -54,6 +55,13 @@ class ContextBuilder:
         successful_actions: list[SuccessfulAction] | None = None,
         action_feedback: str | None = None,
     ) -> list[BaseMessage]:
+        """Select the messages the model will see for its next decision.
+
+        Keep the full objective and restrictions first, or reject an undersized
+        budget. Add executor feedback, progress, recent observations, and optional
+        reference material in that order while space remains. Rebuild this list
+        each turn instead of appending an ever-growing conversation history.
+        """
         max_chars = task.max_context_chars
         if max_chars < len(SYSTEM_PROMPT) + 512:
             raise ContextLimitError("max_context_chars must preserve instructions and task context")
@@ -124,8 +132,8 @@ class ContextBuilder:
                 "action_name": observation.action_name,
                 "error": observation.error,
             }
-            # The summary is all the page text the model needs. References retain
-            # access to separately recorded evidence without copying its contents.
+            # Evidence IDs let a reader trace summaries to recorded observations;
+            # they do not give the model access to separately stored raw evidence.
             # Bound the complete observation, including arguments, rather than
             # only the snapshot text. Keep evidence references before text.
             text = (
@@ -168,6 +176,7 @@ class ContextBuilder:
             )
 
         remaining = max_chars - len(SYSTEM_PROMPT) - sum(len(item) for item in selected)
+        # Earlier sections get space first. These are character limits, not token limits.
         for heading, content in sections:
             prefix = f"\n\n{heading}\n"
             if remaining <= len(prefix):

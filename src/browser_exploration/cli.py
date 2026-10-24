@@ -23,7 +23,10 @@ app = typer.Typer(no_args_is_help=True, help="Independent autonomous browser exp
 
 
 class _JSONFormatter(logging.Formatter):
+    """Format selected log details as redacted JSON for terminal diagnostics."""
+
     def format(self, record: logging.LogRecord) -> str:
+        """Copy known extra fields into one safe log record."""
         payload: dict[str, Any] = {"level": record.levelname, "event": record.getMessage()}
         for key in (
             "run_id",
@@ -40,6 +43,7 @@ class _JSONFormatter(logging.Formatter):
 
 
 def _logging() -> None:
+    """Enable application logs on stderr without adding duplicate handlers."""
     logger = logging.getLogger("browser_exploration")
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stderr)
@@ -54,6 +58,7 @@ def _configuration(
     reasoning_effort_override: str | None = None,
     model_api_override: str | None = None,
 ) -> Settings:
+    """Load .env, preserve exported values, then apply explicit CLI model options."""
     load_dotenv(override=False)
     overrides: dict[str, Any] = {}
     if model_override is not None:
@@ -97,6 +102,7 @@ def check_model(
     settings = _configuration(model, reasoning_effort, model_api)
 
     async def probe() -> dict[str, Any]:
+        """Make the bounded model check and turn known failures into CLI diagnostics."""
         try:
             async with asyncio.timeout(timeout_seconds):
                 response = await OpenAIDecisionModel(settings).decide(
@@ -171,7 +177,11 @@ def run(
         bool, typer.Option(help="Authorize submitting an observed form after filling it")
     ] = False,
 ) -> None:
-    """Run bounded exploration and write result.json, trajectory.jsonl and metrics.json."""
+    """Run bounded exploration and write result.json, trajectory.jsonl and metrics.json.
+
+    This CLI entry point maps options and setting defaults into a public task,
+    then calls the same service a host adapter would await directly from Python.
+    """
     _logging()
     settings = _configuration(model, reasoning_effort, model_api)
     updates: dict[str, Any] = {}
@@ -185,6 +195,7 @@ def run(
         typer.echo(json.dumps({"error": "invalid_configuration"}), err=True)
         raise typer.Exit(2) from None
     try:
+        # Settings defaults become actual run limits only when copied into the task here.
         task = BrowserExplorationTask(
             url=url,
             objective=goal,

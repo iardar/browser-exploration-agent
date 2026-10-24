@@ -17,12 +17,14 @@ if TYPE_CHECKING:
 
 
 class SafetySettings(Protocol):
+    """Expose just the network-policy settings needed by the action checks."""
+
     network_restricted: bool
     allow_private_network: bool
 
 
 class SafetyError(Exception):
-    """An authorization boundary cannot safely be enforced."""
+    """A proposed action or observed destination violates the configured policy."""
 
 
 _URL = re.compile(r"^\s*(?:-\s*)?Page URL:\s*(\S+)\s*$", re.MULTILINE)
@@ -57,6 +59,7 @@ _METADATA_IPS = frozenset({"169.254.169.254", "169.254.170.2", "fd00:ec2::254"})
 
 
 def _host(value: str) -> str:
+    """Normalize a hostname so comparisons ignore case and a trailing dot."""
     try:
         return value.rstrip(".").encode("idna").decode("ascii").lower()
     except UnicodeError as exc:
@@ -64,7 +67,15 @@ def _host(value: str) -> str:
 
 
 class SafetyPolicy:
+    """Check proposed browser actions independently of what the model says is safe.
+
+    Trusted task permissions set the limits. Snapshot text supplies observed
+    element references and link targets, but cannot grant permission. These client
+    checks supplement the operator's external browser network restrictions.
+    """
+
     def __init__(self, task: "BrowserExplorationTask", settings: SafetySettings) -> None:
+        """Start policy tracking for this task with no observed page elements yet."""
         self.task = task
         self.settings = settings
         self.current_url = ""
@@ -72,7 +83,11 @@ class SafetyPolicy:
         self.element_labels: dict[str, str] = {}
 
     def validate_url(self, url: str) -> str:
-        """Validate an exact allowed host, with no implicit subdomain trust."""
+        """Check a destination's scheme, exact hostname, and recognizable IP restrictions.
+
+        Return a normalized URL or raise ``SafetyError``. This does not resolve DNS
+        or prevent the browser from making later redirect or subresource requests.
+        """
         if any(ord(character) < 33 or ord(character) == 127 for character in url):
             raise SafetyError("Destination contains whitespace or control characters.")
         try:
@@ -120,7 +135,12 @@ class SafetyPolicy:
         )
 
     def observe(self, text: str, *, require_url: bool = False) -> str:
-        """Validate page location and derive actionable references from a snapshot."""
+        """Read a tool's page URL and observed element references from snapshot text.
+
+        A snapshot describes elements such as ``[ref=e43]`` and nested link URLs.
+        Save those values so later actions can target observed controls. New page
+        locations are validated, and a new snapshot replaces the old element map.
+        """
         locations = _URL.findall(text)
         if require_url and not locations:
             raise SafetyError("Browser omitted its page URL; navigation cannot be checked.")
@@ -148,6 +168,7 @@ class SafetyPolicy:
         return self.current_url
 
     def _readonly_destination(self, url: str) -> str:
+        """Reject known risky route/query words after checking the destination URL."""
         validated = self.validate_url(url)
         parsed = urlsplit(validated)
         words = re.sub(r"[_/\-]", " ", unquote(parsed.path))
@@ -185,6 +206,13 @@ class SafetyPolicy:
     def authorize(
         self, name: str, args: dict[str, Any], capabilities: dict[str, str]
     ) -> tuple[str, dict[str, Any]]:
+        """Return the permitted tool name and cleaned arguments, or raise a rejection.
+
+        Check the known capability, allowed argument keys, task permissions, and
+        observed element references before execution. A default-policy link click
+        becomes validated navigation instead. Input and submission permissions
+        remain separate, and known sensitive or destructive controls stay denied.
+        """
         if not self.settings.network_restricted:
             raise SafetyError(
                 "Browser execution requires network_restricted=true after the operator configures "
@@ -195,6 +223,7 @@ class SafetyPolicy:
             raise SafetyError("This browser tool is not authorized.")
         if set(args) - ARGUMENTS[capability]:
             raise SafetyError("Tool arguments include unsupported or filesystem parameters.")
+        # Normalize a copy so checking the proposal does not rewrite the model's original data.
         clean = dict(args)
         if capability == "navigate":
             if not isinstance(clean.get("url"), str):
@@ -265,6 +294,7 @@ class SafetyPolicy:
                         "Arbitrary clicks can mutate data; "
                         "default policy permits observed links only."
                     )
+                # Follow the observed URL through navigation instead of firing a click handler.
                 return capabilities["navigate"], {"url": self._readonly_destination(destination)}
         if capability == "type":
             text = clean.get("text")

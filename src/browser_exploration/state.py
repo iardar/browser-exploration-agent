@@ -19,7 +19,7 @@ from .contracts import (
 
 
 class SuccessfulAction(TypedDict):
-    """Compact executor-owned progress retained across bounded model contexts."""
+    """Remember a successful call after its detailed observation leaves recent context."""
 
     capability: str
     action_name: str
@@ -30,10 +30,18 @@ class SuccessfulAction(TypedDict):
 
 
 class ExplorationState(TypedDict):
+    """Describe the working dictionary shared by all three graph nodes in one run.
+
+    ``TypedDict`` documents keys for type checking; public Pydantic models validate
+    task and result data. This internal state is not the host application's state
+    and is not saved as a resumable checkpoint.
+    """
+
     task: BrowserExplorationTask
     run_id: str
     started_at: datetime
     current_url: str
+    # Rebuilt for each decision; only a bounded set of recent observations is kept here.
     messages: list[BaseMessage]
     observations: list[BrowserObservation]
     verified_behaviors: list[VerifiedBehavior]
@@ -41,10 +49,12 @@ class ExplorationState(TypedDict):
     unresolved_questions: list[str]
     evidence: list[EvidenceReference]
     metrics: ExecutionMetrics
+    # None means exploration can continue; any status sends the graph to finalization.
     status: RunStatus | None
     errors: list[RunError]
     observed_actions: list[str]
+    # The full progress ledger survives replacement of recent observations and messages.
     successful_actions: list[SuccessfulAction]
     action_feedback: str | None
-    bootstrap_stage: int
+    bootstrap_stage: int  # 0: navigate next; 1: snapshot next; 2: setup calls selected.
     result: BrowserExplorationResult | None

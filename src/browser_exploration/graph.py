@@ -1,4 +1,10 @@
-"""One explicit state machine with bounded model/tool iterations."""
+"""Run exploration through three connected steps, called graph nodes.
+
+``prepare_context`` checks prerequisites, ``explore_browser`` repeats one bounded
+turn, and ``finalize_report`` builds the result. A shared state dictionary carries
+progress between them. The other functions help these nodes do their work; they
+are not additional graph nodes. See Section 6.2 of ``docs/architecture.md``.
+"""
 
 from __future__ import annotations
 
@@ -59,7 +65,13 @@ def observation_text(raw: Any) -> str:
 
 
 class ExplorationNodes:
-    """Dependencies and the last checkpoint belong to one run, never to a global."""
+    """Hold the three node methods and the helpers used during one run.
+
+    The model proposes a next step; this coordinator applies policy and budgets
+    before calling the browser. ``latest`` keeps the most recent working state
+    available to the service if execution stops partway through. It is not a saved
+    checkpoint and cannot resume a run after the process exits.
+    """
 
     def __init__(
         self,
@@ -68,6 +80,7 @@ class ExplorationNodes:
         state: ExplorationState,
         model: DecisionModel | None,
     ) -> None:
+        """Create fresh policy, context, usage counters, and progress tracking."""
         self.settings = settings
         self.store = store
         self.latest = state
@@ -77,17 +90,26 @@ class ExplorationNodes:
         self.context = ContextBuilder()
         self.tokens = TokenAccumulator()
         self.started_monotonic = time.monotonic()
+        # Only successful, non-screenshot observations can support model claims.
         self.valid_evidence: set[str] = set()
+        # This counter tracks interactions, not every possible change made by page scripts.
         self.page_revision = 0
         self.completed_inspections: set[tuple[int, str, str]] = set()
         self.needs_snapshot = False
         self.consecutive_invalid_decisions = 0
 
     def stop(self, status: RunStatus, code: str, message: str) -> None:
+        """Set a terminal status and add a diagnostic with recognized secrets removed."""
         self.latest["status"] = status
         self.latest["errors"].append(RunError(code=code, message=redact_text(message)))
 
     def prepare_context(self, state: ExplorationState) -> ExplorationState:
+        """Node 1: check the target and required context before exploring.
+
+        Also require the operator's confirmation that browser network controls are
+        configured. This flag does not install a firewall. A failed prerequisite
+        sets ``blocked`` so graph routing goes straight to the report node.
+        """
         self.latest = state
         try:
             self.policy.validate_url(state["task"].url)
@@ -108,6 +130,7 @@ class ExplorationNodes:
         return state
 
     def budget_exhausted(self) -> bool:
+        """Stop if a time, browser-call, or model-request limit has been reached."""
         state = self.latest
         task = state["task"]
         if time.monotonic() - self.started_monotonic >= task.max_duration_seconds:
@@ -119,6 +142,13 @@ class ExplorationNodes:
         return state["status"] is not None
 
     async def explore_browser(self, state: ExplorationState) -> ExplorationState:
+        """Node 2: perform at most one browser call, then return control to the graph.
+
+        Initial turns open the target and read its accessibility snapshot. Later
+        turns ask the model for one action or a finish decision. A rejected model
+        action can produce feedback for the next turn without calling the browser.
+        The router repeats this node while the status remains unset.
+        """
         self.latest = state
         if self.budget_exhausted():
             return state
@@ -210,6 +240,13 @@ class ExplorationNodes:
         )
 
     async def next_action(self) -> Action | None:
+        """Choose setup navigation, a needed snapshot, or one model-proposed action.
+
+        The first two browser calls need no model: open the URL, then read the page.
+        Later model requests use freshly bounded context and consume their own
+        budget, including requests to correct an invalid decision. Return ``None``
+        when the model chooses to finish; execution and authorization happen later.
+        """
         state = self.latest
         assert self.session is not None
         if state["bootstrap_stage"] < 2:
@@ -221,6 +258,7 @@ class ExplorationNodes:
                 arguments={"url": state["task"].url} if stage == 0 else {},
             )
         if self.needs_snapshot:
+            # A response containing only a snapshot-file link leaves no inline page to read.
             return Action(name=self.session.capabilities["snapshot"])
         state["messages"] = self.context.build(
             state["task"],
@@ -272,11 +310,18 @@ class ExplorationNodes:
         )
         self.accept_findings(decision)
         if decision.done:
+            # This records the model's stopping choice, not proof that the objective passed.
             state["status"] = "completed"
             return None
         return decision.action
 
     def accept_findings(self, decision: Decision) -> None:
+        """Merge model claims after checking their evidence IDs and reproduction steps.
+
+        Unknown or failed evidence cannot support an accepted behavior. Findings
+        with unsupported IDs or missing required steps become inconclusive. These
+        checks trace claims to observations; they do not prove the wording is true.
+        """
         state = self.latest
         for behavior in decision.verified_behaviors:
             if set(behavior.evidence_ids).issubset(self.valid_evidence):
@@ -302,6 +347,13 @@ class ExplorationNodes:
         )
 
     async def execute_action(self, action: Action) -> None:
+        """Authorize one proposal, call the browser, and record what happened.
+
+        Policy may reject the proposal or turn a link click into URL navigation.
+        Accepted attempts consume browser-call budget even when the call fails.
+        The final block records an observation on success or failure, provided
+        storage succeeds. A timeout can leave the remote action's outcome unknown.
+        """
         state = self.latest
         assert self.session is not None
         name, arguments = self.policy.authorize(
@@ -316,6 +368,7 @@ class ExplorationNodes:
                 f"The {capability} action already succeeded for the current page state. "
                 "Use its existing observation and finish or choose a different useful action."
             )
+        # Policy rejections above do not count as attempted browser calls.
         metrics = state["metrics"]
         metrics.browser_tool_calls += 1
         state["observed_actions"].append(name)
@@ -375,6 +428,7 @@ class ExplorationNodes:
             text = f"Browser call failed ({type(exc).__name__}); outcome is unknown."
             self.stop("failed", "browser_execution_error", text)
         finally:
+            # Keep a record even if the call failed or cancellation interrupted it.
             if error:
                 metrics.failed_browser_tool_calls += 1
             observation = BrowserObservation(
@@ -399,6 +453,7 @@ class ExplorationNodes:
                     }
                 )
                 if name != self.session.capabilities.get("screenshot"):
+                    # The model sees text only, so screenshot pixels cannot verify its claims.
                     self.valid_evidence.add(evidence.id)
             state["observations"] = [*state["observations"], observation][
                 -state["task"].max_recent_observations :
@@ -411,7 +466,7 @@ class ExplorationNodes:
     def inspection_key(
         self, capability: str, arguments: dict[str, Any]
     ) -> tuple[int, str, str] | None:
-        """Identify observations that add no value when repeated on unchanged page state."""
+        """Make a key to reject repeat inspections of the same tracked page revision."""
         if capability == "snapshot":
             scope: dict[str, Any] = {}
         elif capability == "screenshot":
@@ -430,6 +485,12 @@ class ExplorationNodes:
         )
 
     def finalize_report(self, state: ExplorationState) -> ExplorationState:
+        """Node 3: assemble a validated result from the observations and counters.
+
+        This method builds and redacts the result; the service writes it to disk.
+        The service calls it again after session cleanup so the returned report
+        also includes any error raised while closing the connection.
+        """
         self.latest = state
         metrics = state["metrics"]
         metrics.duration_seconds = max(0, time.monotonic() - self.started_monotonic)
@@ -461,6 +522,11 @@ class ExplorationNodes:
 def build_graph(
     nodes: ExplorationNodes,
 ) -> CompiledStateGraph[ExplorationState, None, ExplorationState, ExplorationState]:
+    """Connect the three nodes and compile the graph that the service will await.
+
+    Flow: START -> prepare_context -> explore_browser (repeat) -> finalize_report
+    -> END. A terminal status skips further exploration, including after preflight.
+    """
     graph = StateGraph(ExplorationState)
     graph.add_node("prepare_context", nodes.prepare_context)
     graph.add_node("explore_browser", nodes.explore_browser)
@@ -468,6 +534,7 @@ def build_graph(
     graph.add_edge(START, "prepare_context")
 
     def route(state: ExplorationState) -> Literal["explore_browser", "finalize_report"]:
+        """Keep exploring only while no terminal status has been set."""
         return "finalize_report" if state["status"] is not None else "explore_browser"
 
     graph.add_conditional_edges("prepare_context", route)
