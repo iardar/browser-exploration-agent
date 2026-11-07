@@ -234,9 +234,15 @@ def run(
                 "reasoning_effort": settings.effective_reasoning_effort,
                 "model_api": settings.effective_model_api,
                 "result": str(settings.output_dir / result.run_id / "result.json"),
+                "verified_behaviors": [
+                    behavior.model_dump(mode="json") for behavior in result.verified_behaviors
+                ],
+                "findings": [finding.model_dump(mode="json") for finding in result.findings],
+                "unresolved_questions": result.unresolved_questions,
                 "errors": [error.model_dump() for error in result.errors],
             },
             indent=2,
+            ensure_ascii=False,
         )
     )
     if result.status != "completed":

@@ -22,3 +22,6 @@ coverage-reports/
 .DS_Store
 output/pdf/
 tmp/pdfs/
+run_mcp.sh
+run_simple.sh
+

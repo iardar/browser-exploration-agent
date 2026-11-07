@@ -214,6 +214,39 @@ approved data. Default runs disable model tracing.
 
 ## Results, evidence, and diagnostics
 
+`qa-browser run` prints a final JSON object to stdout containing the run status, model settings,
+result-file path, and the answers recorded in the result:
+
+- `verified_behaviors`: observed behaviors with their supporting evidence IDs.
+- `findings`: reported issues, including verification status, reproduction steps and evidence IDs.
+- `unresolved_questions`: limitations and unanswered parts of the objective, including rejected
+  actions that prevented progress.
+- `errors`: terminal execution diagnostics.
+
+These fields contain the same redacted values as the saved result, with empty lists when there
+are no entries. Unicode text is printed directly for readability. Progress logs go to stderr,
+so stdout remains a single JSON object that scripts can parse.
+
+For example, a successful link-discovery run can include:
+
+```json
+{
+  "verified_behaviors": [
+    {
+      "description": "The home page contains a visible Sign in link that points to /login.",
+      "evidence_ids": ["evidence-obs-0002"]
+    }
+  ],
+  "findings": [],
+  "unresolved_questions": []
+}
+```
+
+This excerpt omits the existing run metadata. A `completed` run may still have unresolved
+questions; inspect those alongside the reported behaviors. Exit codes remain 0 for `completed`,
+1 for other returned run statuses, and 2 for invalid CLI/task/configuration input. These codes
+describe execution, not an independent assessment of objective fulfillment.
+
 With writable storage, a run records the following beneath its unique output directory:
 
 ```text
