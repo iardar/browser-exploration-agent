@@ -100,9 +100,42 @@ carry redacted arguments, URL, observation ID, and evidence ID, so completed wor
 without replaying it. Page and repository text are untrusted data and cannot expand authority.
 The character allowance is not a token/cost limit; the tool catalog has a separate size cap.
 
+The policy tracks a separate reference revision whenever a page observation replaces its
+element map. The executor records which observation supplied that map. Context keeps exact
+`[ref=...]` markers only in that current observation and only for identifiers still known to
+the policy. Earlier page facts and evidence IDs remain available, with historical reference
+markers removed. Original trajectory summaries and retained payloads remain unchanged. Network
+and console text is not rewritten by this page-reference filter. No identifier is guessed or
+corrected, and execution still validates every proposed reference independently.
+
+The model's tool catalog also omits accessibility snapshot while its existing repeat-inspection
+guard would reject every call on the unchanged tracked page. A later interaction makes snapshot
+available again; automatic bootstrap and snapshot-file recovery continue normally. The server
+capability map and executor guards stay intact. Other inspection tools retain their scope options.
+
 [`summarize_observation`](../../src/browser_exploration/observations.py) redacts recognized patterns,
 compacts verbose link queries when useful, and explicitly truncates. It is not a semantic
 summarizer and can omit relevant content. Raw image/audio/file payloads never enter model context.
+
+Successful network inspections instead use
+[`summarize_network_observation`](../../src/browser_exploration/observations.py). It parses numbered
+or unnumbered `[METHOD] URL => [STATUS]` request lines and `[FAILED]` outcomes. Its counts cover
+recognized lines in the returned listing; missing or unsupported outcomes remain unknown. It
+selects up to five request details, prioritizing HTTP 4xx/5xx and transport failures, then unknown
+outcomes, then other responses. Source order is preserved within each priority group. The summary
+uses at most 1,000 characters within the task's observation allowance and subsequent context
+limits. Long details are explicitly truncated, and omitted request-detail counts are reported
+when space permits.
+
+Static-request exclusion notes remain visible. Unrecognized lines are counted with a warning
+that additional outcomes are unknown; a wholly unrecognized or empty response produces a bounded
+redacted excerpt with unknown counts. These summaries do not establish complete traffic coverage
+or application correctness. A tool-level error keeps the normal diagnostic summary.
+
+The compact network text is saved in the trajectory and selected for model context. The original
+tool response goes separately to evidence JSON when raw retention is enabled, with the same
+evidence ID linkage as other observations. No additional model request, automatic network
+inspection, or change to static-resource filtering is introduced.
 
 ## Recovery within existing limits
 

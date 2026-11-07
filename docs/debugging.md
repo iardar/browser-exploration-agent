@@ -59,7 +59,9 @@ does not change application defaults.
 
 ## Unit tests
 
-The profile launches `python -m pytest tests/unit -vv -s --maxfail=1 -n 0`. Disabling worker processes
+The profile launches `python -m pytest -c pyproject.toml tests/unit -vv -s --maxfail=1 -n 0`.
+The explicit configuration keeps local reporting INI files from overriding async test settings.
+Disabling worker processes
 and output capture makes source breakpoints and terminal output easier to follow. It reads the
 non-secret `.env.example`, disables tracing, and targets only unit tests; existing fake dependencies
 and unit-test network prohibitions remain active.

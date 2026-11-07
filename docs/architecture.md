@@ -2,8 +2,8 @@
 
 | Document property | Value |
 | --- | --- |
-| Revision | 1.1 |
-| Date | 2026-10-24 |
+| Revision | 1.4 |
+| Date | 2026-10-25 |
 | System | Browser Exploration Agent |
 | Implementation baseline | Package `browser-exploration-agent` 0.1.0; result schema 1.0 |
 | Scope | Current architecture, integration boundaries, and explicitly identified future work |
@@ -310,14 +310,39 @@ priority. Executor feedback and a selected successful-action summary precede rec
 findings, questions, requirement text, and supplementary snippets follow as space permits.
 
 The context builder selects the newest observations first and includes only a recent portion of
-the action ledger. Snapshot compaction reduces verbose link query content before deterministic
-truncation. Truncation is explicit and can omit useful information. There is no semantic summarizer
-or guarantee that every supplied snippet reaches the model.
+the action ledger. The policy's reference revision identifies the observation that replaced the
+current element map, including refreshes at the same URL. Only that observation retains exact
+current action-reference markers in model context. Older page facts remain linked to their
+evidence, while historical markers are removed; persisted observations are unchanged. Diagnostic
+network/console text is unaffected. The executor still validates every reference and permission.
+
+Snapshot compaction reduces verbose link query content before deterministic
+truncation. Successful network inspections use a separate deterministic summary, capped at the
+smaller of 1,000 characters and the task's observation allowance. It counts recognized request
+lines, HTTP 4xx/5xx responses, transport failures, and unknown outcomes. Up to five request details
+are selected with failures first, unknown outcomes next, and other responses last; source order
+is preserved within each group. Static-request omission notes and unrecognized-line warnings
+preserve the returned listing's limits. Unrecognized or empty formats produce an explicit
+unknown-count message with a bounded redacted excerpt rather than a claim of zero failures.
+
+Network summaries replace the listing in trajectory summaries and model context. When raw
+retention is enabled, the complete redacted tool response still goes to the normal evidence JSON,
+linked through the existing observation/evidence IDs. Retention itself adds no model context.
+The summary does not change tool arguments, request additional captures, or make another model
+call. Tool failures keep their ordinary diagnostic summaries. All context selection remains
+deterministic rather than model-generated; truncation can omit useful information, and there is
+no guarantee that every supplied snippet reaches the model. Network counts describe recognized
+lines in the returned listing, not all browser traffic, product correctness, or objective completion.
 
 The model adapter requests exactly one action or completion through structured output. Pydantic
 revalidates the decision, including injected test decisions. Dynamic action arguments are validated
 again by the executor. Provider configuration errors and request failures produce sanitized
 diagnostics; the adapter does not automatically select another model.
+
+The per-decision tool catalog excludes snapshot once that exact no-argument inspection succeeded
+for the current tracked page revision. It becomes available after an interaction changes that
+revision. Bootstrap/recovery snapshots and server capabilities are unaffected, and the executor's
+repeat guard remains authoritative if a model proposes the hidden action anyway.
 
 The model receives text, not screenshot pixels. Tool schemas are appended under a separate
 32,000-character limit. Character limits are not token limits, and the tool catalog is additional
@@ -455,6 +480,8 @@ The verification layers are:
 | Offline unit tests | Contracts, policy, context selection, budgets, state transitions, errors, and artifacts using injected fakes |
 | Package-boundary tests | No host imports, independent public import, and schema/package boundaries |
 | Opt-in local MCP test | Persistent-session navigation and snapshots against the bundled fixture |
+| [Network-capture dataset](../evals/network_capture/README.md) | Three controlled cases and offline grading of capture coverage, evidence retention, summary accuracy, and budgets; live trials remain separate |
+| [Opt-in real-model component checks](browser_exploration/testing.md#bounded-real-llm-component-tests) | Real decision adapter and graph over the three synthetic network cases, with request/output/deadline caps and usage reports; no real MCP transport |
 | Live model/application evaluation | Needed separately to measure objective fulfillment and supported findings |
 
 Default CI installs the lock, runs Ruff lint/format, mypy, parallel unit tests, and builds the
@@ -495,7 +522,7 @@ The following are proposed directions, not current capabilities:
 | Next | Artifact failures can escape the structured result boundary | Define an explicit persistence-failure contract and failure-injection tests |
 | Next | Repeated rejected proposals can consume all iterations | Evaluate a bounded no-progress rule with recorded trajectories |
 | Next | Generic root-level Decision diagnostics can obscure the failed rule | Consider rule-specific safe diagnostic codes without logging raw output or rejected values |
-| Next | Prefix truncation can omit relevant result content after query compaction | Evaluate observation selection against reviewed fixture content without weakening context limits or provenance |
+| Next | Snapshot prefix truncation and bounded network selection can omit relevant details | Evaluate selection against reviewed fixture content without weakening context limits or provenance |
 | Before scale-out | Sharing and workload capacity are unspecified | Validate run-local dependencies, browser allocation, admission limits, and storage ownership before adding workers |
 
 Open deployment decisions include the first controlled application/version, allowed interaction

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Collection
 from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
+from .browser_tools import ALIASES
 from .contracts import (
     BrowserExplorationTask,
     BrowserFinding,
@@ -15,6 +18,18 @@ from .contracts import (
 )
 from .prompts import SYSTEM_PROMPT
 from .state import SuccessfulAction
+
+_REFERENCE = re.compile(r"\[ref=([^\]\s]+)\]")
+_PAGE_ACTIONS = {
+    name
+    for capability in ("navigate", "snapshot", "click", "hover", "type", "fill_form")
+    for name in ALIASES[capability]
+}
+
+
+def _filter_references(text: str, allowed: Collection[str]) -> str:
+    """Keep exact identifiers from the current observation; do not guess replacements."""
+    return _REFERENCE.sub(lambda match: match.group() if match[1] in allowed else "", text)
 
 
 def _text(value: Any) -> str:
@@ -54,6 +69,9 @@ class ContextBuilder:
         unresolved_questions: list[str],
         successful_actions: list[SuccessfulAction] | None = None,
         action_feedback: str | None = None,
+        *,
+        current_references: Collection[str] | None = None,
+        reference_observation_id: str | None = None,
     ) -> list[BaseMessage]:
         """Select the messages the model will see for its next decision.
 
@@ -62,6 +80,7 @@ class ContextBuilder:
         reference material in that order while space remains. Rebuild this list
         each turn instead of appending an ever-growing conversation history.
         """
+        active_references = set(current_references) if current_references is not None else None
         max_chars = task.max_context_chars
         if max_chars < len(SYSTEM_PROMPT) + 512:
             raise ContextLimitError("max_context_chars must preserve instructions and task context")
@@ -136,13 +155,21 @@ class ContextBuilder:
             # they do not give the model access to separately stored raw evidence.
             # Bound the complete observation, including arguments, rather than
             # only the snapshot text. Keep evidence references before text.
-            text = (
-                _text(data)
-                + "\n"
-                + observation.summary
-                + "\naction_arguments: "
-                + _text(observation.action_arguments)
-            )
+            summary = observation.summary
+            arguments = _text(observation.action_arguments)
+            if (
+                active_references is not None
+                and observation.action_name in _PAGE_ACTIONS
+                and _REFERENCE.search(summary + arguments)
+            ):
+                # Historical page facts stay available as evidence. Their element
+                # identifiers are not valid action targets on the current page.
+                allowed = active_references if observation.id == reference_observation_id else set()
+                summary = _filter_references(summary, allowed)
+                arguments = _filter_references(arguments, allowed)
+                if observation.id != reference_observation_id:
+                    data["element_references"] = "historical; omitted"
+            text = _text(data) + "\n" + summary + "\naction_arguments: " + arguments
             sections.append(
                 (
                     "RECENT OBSERVATION — UNTRUSTED DATA",

@@ -34,6 +34,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=1,<2",
     "pytest-cov>=7.1,<8",
+    "pytest-reportportal==5.6.10",
     "pytest-xdist==3.8.0",
     "ruff>=0.16.4,<0.17",
 ]
@@ -45,13 +46,25 @@ packages = ["src/browser_exploration"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
-markers = ["live_mcp: opt-in test requiring a real Playwright MCP server"]
+markers = [
+    "live_mcp: opt-in test requiring a real Playwright MCP server",
+    "live_llm: opt-in real-model component test with a synthetic browser",
+]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
+rp_endpoint = "http://localhost:8080"
+rp_project = "system_a"
+# Set RP_API_KEY in .env.reportportal or the environment.
+rp_launch = "Browser exploration unit tests"
+rp_launch_attributes = ["suite:unit", "browser:fake", "model:fake"]
+rp_launch_description = "Offline unit suite with injected browser and model transports."
+rp_log_level = "INFO"
+
+# pytest-reportportal 5.6.10 does not define an rp_xdist_enabled option.
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -62,7 +75,7 @@ indent-style = "space"
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests", "examples/browser_exploration/mock_run.py"]
+files = ["src", "tests", "evals", "scripts", "examples/browser_exploration/mock_run.py"]
 warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true

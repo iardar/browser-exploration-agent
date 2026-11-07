@@ -85,6 +85,8 @@
                 "QA_BROWSER_LIVE_MCP": "0"
             },
             "args": [
+                "-c",
+                "${workspaceFolder}/pyproject.toml",
                 "tests/unit",
                 "-vv",
                 "-s",

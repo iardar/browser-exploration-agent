@@ -20,6 +20,7 @@ jobs:
       LANGSMITH_TRACING: "false"
       LANGCHAIN_TRACING_V2: "false"
       PYTHONUNBUFFERED: "1"
+      QA_BROWSER_LIVE_MCP: "0"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
@@ -31,5 +32,5 @@ jobs:
       - run: uv run --no-sync ruff check .
       - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync mypy
-      - run: uv run --no-sync pytest tests/unit -n auto
+      - run: uv run --no-sync pytest -c pyproject.toml tests -n auto
       - run: uv build

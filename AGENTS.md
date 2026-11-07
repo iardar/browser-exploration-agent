@@ -12,12 +12,16 @@ Run commands from this repository root:
 - `uv run ruff check .`
 - `uv run ruff format --check .`
 - `uv run mypy`
-- `uv run pytest tests/unit -n auto`
+- `uv run pytest -c pyproject.toml tests/unit -n auto`
 - `uv build`
 
 Keep live checks opt-in. Unit tests inject model and MCP fakes and prohibit network calls.
 `QA_BROWSER_LIVE_MCP=1 uv run pytest tests/integration -v` needs an independently started local
 MCP server and controlled fixture. Credentials and generated artifacts must never be committed.
+
+Real-model component tests live in `tests/live_llm/`, use a synthetic MCP browser, and skip unless
+`--live-llm` is passed. Run them serially (`-n 0`). The test harness caps provider calls, output,
+input size, and deadlines; no live provider calls belong in `tests/unit/`.
 
 Read `docs/contracts/browser_exploration_v1.md` before changing public task/result fields or
 status meaning. Regenerate schemas after contract changes. A model-directed `completed` result

@@ -1,0 +1,36 @@
+{
+  "dataset_id": "network-capture-v1",
+  "fixture_version": "1",
+  "objective": "Capture the complete network request listing for this page, including static resources. Save the returned logs as evidence and report any observed HTTP errors or request failures. Do not navigate away. Finish once the capture is complete.",
+  "task_defaults": {
+    "max_steps": 10,
+    "max_model_iterations": 8,
+    "max_duration_seconds": 120,
+    "max_recent_observations": 5,
+    "max_observation_chars": 6000,
+    "max_context_chars": 18000
+  },
+  "cases": [
+    {
+      "id": "NET-001",
+      "category": "positive",
+      "title": "Capture a healthy page completely",
+      "path": "/cases/NET-001/",
+      "purpose": "Check that a real network tool call retains the document and three successful script requests, rather than only claiming to have captured logs."
+    },
+    {
+      "id": "NET-002",
+      "category": "positive",
+      "title": "Capture a known HTTP failure",
+      "path": "/cases/NET-002/",
+      "purpose": "Check that a successful capture includes the seeded HTTP 500 response in both raw evidence and the compact summary. A positive case means the capture task succeeds."
+    },
+    {
+      "id": "NET-003",
+      "category": "edge",
+      "title": "Preserve late failures in a large request listing",
+      "path": "/cases/NET-003/",
+      "purpose": "Check that all 200 successful script requests and the final HTTP 500 and 404 responses are retained, while both failures survive the 1000-character summary cap."
+    }
+  ]
+}

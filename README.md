@@ -41,14 +41,20 @@ uv run qa-browser --help
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
-uv run pytest tests/unit -n auto
+uv run pytest -c pyproject.toml tests/unit -n auto
 uv build
 ```
 
 If this restricted sandbox misses asyncio selector wakeups, use the optional test-only workaround:
-`PYTHONPATH=.:src uv run python -m pytest tests/unit -n auto -p tests.sandbox_polling`.
+`PYTHONPATH=.:src uv run python -m pytest -c pyproject.toml tests/unit -n auto -p tests.sandbox_polling`.
 It does not change runtime code or relax test network restrictions. See the
 [testing guide](docs/browser_exploration/testing.md) for validation scope and coverage commands.
+
+To publish the offline unit suite to ReportPortal, set the key in ignored `.env.reportportal`
+and run `uv run python -m scripts.reportportal`, or pass `--reportportal` to pytest. Both entry
+points verify the finished server launch and test counts. See
+[ReportPortal setup](docs/browser_exploration/testing.md#reportportal-launches)
+for endpoint overrides and uploading an existing JUnit report.
 
 The Python Playwright package is not a client dependency. Install/run the compatible browser on
 the MCP server. The `qa-browser` command name is retained from Agentic QA; use a dedicated virtual
@@ -86,7 +92,10 @@ Read the [operating guide](docs/browser_exploration/README.md) before running ag
 | Understand components, graph nodes, and remaining limitations | [Architecture](docs/architecture.md) |
 | Install, configure, and operate the agent | [Operating guide](docs/browser_exploration/README.md) |
 | Integrate through the public task/result boundary | [V1 contract](docs/contracts/browser_exploration_v1.md) and [adapter design](docs/adapter_design.md) |
-| Run offline tests, measure coverage, or opt into MCP checks | [Testing guide](docs/browser_exploration/testing.md) |
+| Run offline tests, measure coverage, or opt into MCP/LLM checks | [Testing guide](docs/browser_exploration/testing.md) |
+| Evaluate network capture against controlled request oracles | [Network-capture dataset](evals/network_capture/README.md) |
+| Learn the evaluation framework and proposed LangSmith integration | [Evaluation handbook](docs/evaluation_handbook.md) |
+| Inspect saved-run quality and reproduce context metrics | [Run-quality baseline](docs/quality_baseline.md) |
 | Step through the application in VS Code | [Debugging guide](docs/debugging.md) |
 | Draft another node's contract | [Reusable Markdown template](docs/templates/node_contract_template.md) |
 

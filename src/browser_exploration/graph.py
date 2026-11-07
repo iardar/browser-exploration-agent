@@ -38,7 +38,7 @@ from .model import (
     OpenAIDecisionModel,
     validation_diagnostics,
 )
-from .observations import summarize_observation
+from .observations import summarize_network_observation, summarize_observation
 from .reporting import ArtifactStore, redact, redact_text
 from .safety import SafetyError, SafetyPolicy
 from .state import ExplorationState
@@ -97,6 +97,7 @@ class ExplorationNodes:
         self.completed_inspections: set[tuple[int, str, str]] = set()
         self.needs_snapshot = False
         self.consecutive_invalid_decisions = 0
+        self.reference_observation_id: str | None = None
 
     def stop(self, status: RunStatus, code: str, message: str) -> None:
         """Set a terminal status and add a diagnostic with recognized secrets removed."""
@@ -269,6 +270,8 @@ class ExplorationNodes:
             state["unresolved_questions"],
             state["successful_actions"],
             state["action_feedback"],
+            current_references=self.policy.element_labels,
+            reference_observation_id=self.reference_observation_id,
         )
         if self.model is None:
             try:
@@ -280,7 +283,17 @@ class ExplorationNodes:
         state["metrics"].llm_calls += 1
         usage: dict[str, int] | None = None
         try:
-            response = await self.model.decide(state["messages"], tool_specs(self.session))
+            available_tools = tool_specs(self.session)
+            snapshot_key = self.inspection_key("snapshot", {})
+            if snapshot_key in self.completed_inspections:
+                # Snapshot has no scope arguments: every proposal would be a
+                # rejected repeat until an interaction changes the tracked page.
+                available_tools = [
+                    spec
+                    for spec in available_tools
+                    if spec["name"] != self.session.capabilities["snapshot"]
+                ]
+            response = await self.model.decide(state["messages"], available_tools)
             usage = response.usage
         except ModelError as exc:
             usage = exc.usage
@@ -375,6 +388,8 @@ class ExplorationNodes:
         raw: Any = None
         text = ""
         error = False
+        references_refreshed = False
+        previous_reference_revision = self.policy.reference_revision
         try:
             async with asyncio.timeout(self.settings.tool_timeout_seconds):
                 raw = await self.session.call(name, arguments)
@@ -388,6 +403,7 @@ class ExplorationNodes:
                 self.session.capabilities["snapshot"],
             }
             state["current_url"] = self.policy.observe(text, require_url=requires_url)
+            references_refreshed = self.policy.reference_revision != previous_reference_revision
             if name == self.session.capabilities["snapshot"] and not re.search(
                 r"^\s*-\s+(?!Page (?:URL|Title):)\S", text, re.MULTILINE
             ):
@@ -431,17 +447,26 @@ class ExplorationNodes:
             # Keep a record even if the call failed or cancellation interrupted it.
             if error:
                 metrics.failed_browser_tool_calls += 1
+            # Keep request failures visible without adding the full listing to context.
+            # Tool errors retain the usual diagnostic text; raw evidence is unchanged.
+            summarize = (
+                summarize_network_observation
+                if capability == "network" and not error
+                else summarize_observation
+            )
             observation = BrowserObservation(
                 id=f"obs-{metrics.browser_tool_calls:04d}",
                 url=redact_text(state["current_url"] or state["task"].url),
                 action_name=name,
                 action_arguments=redact(arguments),
-                summary=summarize_observation(text, state["task"].max_observation_chars),
+                summary=summarize(text, state["task"].max_observation_chars),
                 error=error,
             )
             evidence = self.store.record(observation, raw)
             state["evidence"].append(evidence)
             if not error:
+                if references_refreshed:
+                    self.reference_observation_id = observation.id
                 state["successful_actions"].append(
                     {
                         "capability": capability,

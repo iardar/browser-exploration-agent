@@ -81,6 +81,8 @@ class SafetyPolicy:
         self.current_url = ""
         self.link_targets: dict[str, str] = {}
         self.element_labels: dict[str, str] = {}
+        # A new snapshot invalidates previous action references, even at the same URL.
+        self.reference_revision = 0
 
     def validate_url(self, url: str) -> str:
         """Check a destination's scheme, exact hostname, and recognizable IP restrictions.
@@ -147,6 +149,7 @@ class SafetyPolicy:
         for location in locations:
             self.current_url = self.validate_url(location)
         if locations or "### Snapshot" in text:
+            self.reference_revision += 1
             self.link_targets = {}
             self.element_labels = {}
             pending_link: tuple[str, int] | None = None

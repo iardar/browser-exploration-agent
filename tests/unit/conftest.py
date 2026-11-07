@@ -1,4 +1,4 @@
-"""Keep the browser agent unit suite independent of operator settings and services."""
+"""Keep every unit test independent of operator settings and external services."""
 
 import os
 import socket
@@ -13,7 +13,7 @@ from browser_exploration import cli
 @pytest.fixture(autouse=True)
 def offline_agent_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for name in tuple(os.environ):
-        if name.startswith("BROWSER_") or name in {
+        if name.startswith(("BROWSER_", "RP_")) or name in {
             "OPENAI_API_KEY",
             "OPENAI_MODEL",
             "PLAYWRIGHT_MCP_URL",
@@ -30,6 +30,7 @@ def offline_agent_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
     attempts: list[str] = []
     original_connect = socket.socket.connect
     original_connect_ex = socket.socket.connect_ex
+    original_sendto = socket.socket.sendto
 
     def connect(sock: socket.socket, address: Any) -> None:
         if sock.family in {socket.AF_INET, socket.AF_INET6}:
@@ -47,8 +48,18 @@ def offline_agent_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
         attempts.append("DNS lookup")
         raise AssertionError("Unit tests must not resolve network destinations")
 
+    def sendto(sock: socket.socket, *args: Any) -> int:
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            attempts.append("sendto")
+            raise AssertionError("Unit tests must not send network datagrams")
+        return original_sendto(sock, *args)
+
     monkeypatch.setattr(socket.socket, "connect", connect)
     monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
+    monkeypatch.setattr(socket.socket, "sendto", sendto)
     monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(socket, "gethostbyname", resolve)
+    monkeypatch.setattr(socket, "gethostbyname_ex", resolve)
+    monkeypatch.setattr(socket, "getnameinfo", resolve)
     yield
     assert not attempts, f"Forbidden network operations attempted: {attempts}"

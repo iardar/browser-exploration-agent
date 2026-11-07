@@ -89,7 +89,7 @@ docker compose -f examples/browser_exploration/compose.yaml up -d
 export PLAYWRIGHT_MCP_URL=http://127.0.0.1:8931/mcp
 uv run qa-browser check
 
-QA_BROWSER_LIVE_MCP=1 uv run pytest \
+QA_BROWSER_LIVE_MCP=1 uv run pytest -c pyproject.toml \
   tests/integration/browser_exploration/test_live_mcp.py -v
 ```
 
@@ -218,6 +218,43 @@ trajectory. `retained=false` does not make the original payload recoverable. Pat
 best effort and does not redact pixels. Use approved sanitized data and independently manage MCP
 server files, browser profiles, logs, and retention. Storage failure can leave partial files or
 raise before a valid result is returned.
+
+### Network evidence and model context
+
+When the agent calls `browser_network_requests` (or its supported Playwright-prefixed alias), a
+successful response receives a compact network summary. It reports recognized request counts,
+HTTP 4xx/5xx responses, transport failures, and unknown outcomes. Up to five request details are
+shown, with failures before unknown outcomes and other responses. For example:
+
+```text
+Network requests parsed: 18; HTTP errors: 1; failed: 1; unknown outcome: 0.
+Static requests omitted by tool: 21.
+Request details omitted: 13.
+[500] GET https://example.com/api/articles Server Error
+[FAILED] GET https://example.com/api/tags net::ERR_CONNECTION_RESET
+[200] GET https://example.com/
+[200] GET https://example.com/api/profile
+[200] GET https://example.com/api/settings
+```
+
+The network summary is capped at 1,000 characters, or the task's smaller observation allowance.
+It replaces the full listing
+in `trajectory.jsonl` and model context, which remains subject to the overall message budget.
+Unrecognized lines and unknown outcomes are disclosed. An unsupported or empty response format
+retains a bounded redacted excerpt with unknown counts rather than implying there were no errors.
+Counts describe the recognized lines returned by the tool; excluded traffic is not assessed.
+
+Enable `BROWSER_RETAIN_RAW_EVIDENCE=true` or add `--retain-raw-evidence` to `run` to also save the
+complete redacted tool response at `evidence/obs-XXXX.json`. The observation's `evidence_ref` and
+`result.json` evidence entry link to that file. Keeping the artifact does not add its contents to
+model context. With retention disabled, only the bounded summary and metadata remain.
+
+This feature adds no automatic network captures and does not change tool arguments or static
+filtering. Request collection in the objective when needed; collection consumes the existing
+browser-call budget. It stores the returned request listing, not a HAR, headers, or response
+bodies. Tool-level failures retain their normal diagnostic summaries.
+
+### Schema export
 
 Export schemas without external services:
 
