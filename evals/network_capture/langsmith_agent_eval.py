@@ -20,9 +20,10 @@ from langsmith.schemas import Example
 from browser_exploration.config import Settings
 from browser_exploration.contracts import BrowserExplorationTask
 from browser_exploration.explorer import AutonomousBrowserExplorer
-from browser_exploration.mcp_client import check_connection
 from evals.network_capture.dataset import ROOT, load_case, load_dataset, load_requests
+from evals.network_capture.deployment import DEFAULT_CONTAINER, DEFAULT_MCP_URL, IsolationError
 from evals.network_capture.grade import GRADER_VERSION, grade_run
+from evals.network_capture.isolation import TrialConnection, TrialIsolation
 
 DATASET_NAME = "browser-network-capture-native-v1"
 DATASET_ID = "2ed1a341-fd4d-4b95-b123-09bf46d29420"
@@ -219,6 +220,8 @@ def _source_metadata() -> dict[str, Any]:
         [
             *(repo_root / "src/browser_exploration").glob("*.py"),
             *ROOT.glob("*.py"),
+            ROOT / "probe.js",
+            ROOT / "compose.yaml",
             *_ORACLE_HASH_INPUTS,
             repo_root / "pyproject.toml",
             repo_root / "uv.lock",
@@ -255,6 +258,7 @@ def _source_metadata() -> dict[str, Any]:
 async def run_evaluation(args: argparse.Namespace) -> None:
     """Run the native dataset serially and print its LangSmith experiment details."""
     settings = Settings(
+        mcp_url=args.mcp_url,
         output_dir=args.output_dir,
         retain_raw_evidence=True,
         langsmith_enabled=False,
@@ -271,12 +275,11 @@ async def run_evaluation(args: argparse.Namespace) -> None:
         for case in load_dataset()["cases"]
     }
 
-    connection = await check_connection(settings)
-    if connection.get("status") != "connected":
-        error = connection.get("error", {}).get("code", "mcp_unavailable")
-        raise EvaluationSetupError(f"MCP preflight failed ({error}).")
-    if "network" not in connection.get("capabilities", {}):
-        raise EvaluationSetupError("The configured MCP server lacks network-capture capability.")
+    isolation = TrialIsolation(settings, args.fixture_base_url, args.deployment_container)
+    try:
+        await isolation.prepare()
+    except IsolationError as exc:
+        raise EvaluationSetupError(str(exc)) from None
 
     if args.check_only:
         print(
@@ -288,15 +291,25 @@ async def run_evaluation(args: argparse.Namespace) -> None:
                     "mcp_status": "connected",
                     "network_capability": True,
                     "model_calls": 0,
+                    "isolation_verified": True,
+                    "setup_records": str(isolation.directory),
                 },
                 indent=2,
             )
         )
         return
 
+    provenance = {
+        **_source_metadata(),
+        "dataset_source_content_sha256": _dataset_source_hash(),
+        "fixture_version": load_dataset()["fixture_version"],
+        "grader_version": GRADER_VERSION,
+    }
+
     async def target(inputs: dict[str, Any]) -> dict[str, Any]:
         """Run one dataset case and return only compact, reviewed result fields."""
         case_id = str(inputs.get("case_id", ""))
+        connection: TrialConnection | None = None
         try:
             case = load_case(case_id)
             local_dataset = load_dataset()
@@ -312,8 +325,24 @@ async def run_evaluation(args: argparse.Namespace) -> None:
                 objective=inputs["objective"],
                 **inputs["limits"],
             )
-            explorer = AutonomousBrowserExplorer(settings)
+            connection = isolation.connection(case_id, task.url)
+            connection.record.update(provenance=provenance, task=task.model_dump(mode="json"))
+            if isolation.failed:
+                connection.record["status"] = "not_started"
+                raise IsolationError("Further trials stopped after isolation failure.")
+            explorer = AutonomousBrowserExplorer(settings, connection=connection)
             result = await explorer.explore(task)
+            connection.record.update(
+                run_id=result.run_id,
+                result_status=result.status,
+                provider_identity_artifact=f"{result.run_id}/decisions.jsonl",
+            )
+            if (
+                connection.record["readiness"] != "ready"
+                or connection.record["cleanup"] != "passed"
+            ):
+                isolation.failed = True
+                raise IsolationError("Trial isolation or fixture readiness was not established.")
             report = grade_run(case_id, settings.output_dir / result.run_id)
             checks = report.get("checks", {})
             check_names = (
@@ -328,6 +357,7 @@ async def run_evaluation(args: argparse.Namespace) -> None:
                 "run_id": result.run_id,
                 "run_status": result.status,
                 "run_error_codes": [error.code for error in result.errors],
+                "trial_isolation": {"verified": True, "setup_id": connection.path.stem},
                 "grade": {
                     "passed": report.get("passed", False),
                     "verdict": report.get("verdict", "invalid_artifacts"),
@@ -352,6 +382,10 @@ async def run_evaluation(args: argparse.Namespace) -> None:
                 },
             }
         except Exception as exc:
+            if connection is not None:
+                connection.record["runner_error_type"] = type(exc).__name__
+                if connection.record.get("status") == "planned":
+                    connection.record["status"] = "failed"
             return {
                 "case_id": case_id,
                 "run_status": "runner_error",
@@ -359,17 +393,19 @@ async def run_evaluation(args: argparse.Namespace) -> None:
                 "grade": None,
                 "execution": None,
             }
+        finally:
+            if connection is not None:
+                connection.save()
 
     metadata = {
         "evaluation_layer": "live_browser",
         "dataset_id": args.dataset_id,
-        "dataset_source_content_sha256": _dataset_source_hash(),
-        "fixture_version": load_dataset()["fixture_version"],
-        "grader_version": GRADER_VERSION,
+        **provenance,
         "models": [settings.model],
         "planned_repetitions": args.num_repetitions,
         "network_boundary_attested": settings.network_restricted,
-        **_source_metadata(),
+        "deployment": isolation.deployment,
+        "runtime_versions": isolation.versions,
     }
     results = await client.aevaluate(
         target,
@@ -385,6 +421,10 @@ async def run_evaluation(args: argparse.Namespace) -> None:
         error_handling="log",
     )
     await results.wait()
+    if isolation.failed:
+        raise EvaluationSetupError(
+            "Evaluation stopped after isolation failure; inspect setup records."
+        )
     print(
         json.dumps(
             {
@@ -409,6 +449,8 @@ def _arguments() -> argparse.Namespace:
         help="Fixture origin reachable by the MCP browser (default: %(default)s)",
     )
     parser.add_argument("--dataset-id", default=DATASET_ID)
+    parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL)
+    parser.add_argument("--deployment-container", default=DEFAULT_CONTAINER)
     parser.add_argument("--experiment-prefix", default="network-capture-agent")
     parser.add_argument("--num-repetitions", type=int, default=1)
     parser.add_argument(
@@ -417,9 +459,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument(
         "--check-only",
         action="store_true",
-        help=(
-            "Check credentials, dataset consistency, MCP and fixture settings without model calls."
-        ),
+        help=("Verify dataset, deployment and live browser isolation without model calls."),
     )
     args = parser.parse_args()
     if args.num_repetitions < 1 or args.num_repetitions > 20:

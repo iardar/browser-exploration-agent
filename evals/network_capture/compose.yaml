@@ -1,0 +1,104 @@
+{
+  "name": "network-capture-eval",
+  "services": {
+    "mcp": {
+      "image": "mcr.microsoft.com/playwright/mcp@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb",
+      "init": true,
+      "entrypoint": [
+        "node",
+        "/app/cli.js"
+      ],
+      "command": [
+        "--headless",
+        "--browser",
+        "chromium",
+        "--no-sandbox",
+        "--isolated",
+        "--block-service-workers",
+        "--port",
+        "8931",
+        "--host",
+        "0.0.0.0",
+        "--allowed-hosts",
+        "localhost:8932,127.0.0.1:8932",
+        "--output-dir",
+        "/tmp/eval-artifacts"
+      ],
+      "networks": [
+        "fixture-only"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp:mode=1777",
+        "/home/node/.cache:uid=1000,gid=1000,mode=0700",
+        "/home/node/.config:uid=1000,gid=1000,mode=0700"
+      ],
+      "shm_size": "1gb",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ]
+    },
+    "fixture": {
+      "image": "python:3.12-alpine@sha256:e064671ca452259bab50e8e2c7bd896e39e9a343bb06ca25234adf6fe18d0fc7",
+      "network_mode": "service:mcp",
+      "working_dir": "/workspace",
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "evals.network_capture.fixture",
+        "--bind",
+        "0.0.0.0",
+        "--port",
+        "8766"
+      ],
+      "volumes": [
+        "./:/workspace/evals/network_capture:ro"
+      ],
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ]
+    },
+    "gateway": {
+      "image": "mcr.microsoft.com/playwright/mcp@sha256:690763cbb437ee7233f538a953bb5390bf03791eb5c965b471e59d17a6132fcb",
+      "entrypoint": [
+        "node"
+      ],
+      "command": [
+        "-e",
+        "const net=require(\"node:net\"); for(const [listen,target] of [[8932,8931],[8766,8766]]) net.createServer(client=>{const upstream=net.connect(target,\"mcp\"); client.pipe(upstream).pipe(client); client.on(\"error\",()=>upstream.destroy()); upstream.on(\"error\",()=>client.destroy()); client.on(\"close\",()=>upstream.destroy()); upstream.on(\"close\",()=>client.destroy());}).listen(listen,\"0.0.0.0\");"
+      ],
+      "ports": [
+        "127.0.0.1:8932:8932",
+        "127.0.0.1:8766:8766"
+      ],
+      "networks": [
+        "fixture-only",
+        "ingress"
+      ],
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "depends_on": [
+        "mcp"
+      ]
+    }
+  },
+  "networks": {
+    "fixture-only": {
+      "internal": true
+    },
+    "ingress": {}
+  }
+}

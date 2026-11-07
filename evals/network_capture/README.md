@@ -64,16 +64,57 @@ Responses use `Cache-Control: no-store`. Fresh browser contexts still matter for
 
 ## Run the LangSmith agent-capture evaluation
 
+The evaluation requires its dedicated Docker Compose stack. It cannot use the normal host `npx`
+server on port 8931 because the runner verifies the pinned image, exact MCP launch flags, fixture
+container and internal Docker network. The evaluation stack listens on port 8932, so both servers
+can run at the same time.
+
+Prerequisites:
+
+- Docker with permission to inspect and start containers.
+- Python 3.12 dependencies installed with `uv sync --locked`.
+- `LANGSMITH_API_KEY` for dataset validation and publication.
+- `OPENAI_API_KEY` and an available `OPENAI_MODEL` for the full evaluation. `--check-only` does
+  not use the model provider and does not require the OpenAI key.
+- Loopback ports 8932 and 8766 available.
+
+Put credentials in the environment, a secret manager, or an untracked `.env`. Do not commit them:
+
+```dotenv
+LANGSMITH_API_KEY=
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Start the dedicated evaluation deployment from the repository root:
+
+```bash
+uv sync --locked
+docker compose -f evals/network_capture/compose.yaml up -d
+docker compose -f evals/network_capture/compose.yaml ps
+```
+
+This stack pins both container images by digest. MCP uses `--isolated` and
+`--block-service-workers`, with no shared context, persistent profile or preloaded storage.
+The fixture shares the browser's internal network namespace. A fixed-destination TCP gateway
+publishes only loopback ports 8932 (MCP) and 8766 (fixture); the browser has no external network
+interface. Ports must be free. The generic demo deployment on port 8931 is separate.
+Chrome's writable configuration, cache and temporary files use ephemeral tmpfs mounts.
+Do not reuse this dedicated server for interactive browsing during an experiment.
+
 The native LangSmith dataset `browser-network-capture-native-v1` contains the three reviewed task
 inputs and expected request lists. The runner below fetches that dataset, verifies its examples
 against the local source files, then runs the real agent against the controlled fixture through
 the configured MCP server. It saves full artifacts locally, but sends only compact grade and
 execution fields to LangSmith. `BROWSER_NETWORK_RESTRICTED=true` is an operator attestation; it
-does not install network controls. Configure the provider and LangSmith keys in `.env`, start the
-fixture and MCP server, and establish the external network controls first.
+does not install network controls. Configure the provider and LangSmith keys in `.env`.
+The evaluator verifies the running Compose deployment before any model call and before each
+trial. It rejects other endpoints, launch configurations, container restarts and fixture drift.
+It requires local Docker inspection access and defaults to `http://127.0.0.1:8932/mcp`. Leave
+`--mcp-url` and `--deployment-container` at their defaults for this checked-in deployment.
 
-Use `--check-only` to verify LangSmith dataset access, fixture settings and MCP capabilities
-without making any model calls:
+Use `--check-only` to verify LangSmith dataset access, the deployment and live isolation probes
+without making any model calls. It does launch disposable browser sessions:
 
 ```bash
 BROWSER_NETWORK_RESTRICTED=true \
@@ -82,6 +123,10 @@ uv run python -m evals.network_capture.langsmith_agent_eval \
   --fixture-base-url http://127.0.0.1:8766 \
   --check-only
 ```
+
+Continue only when this prints `"status": "ready"`, `"model_calls": 0`, and
+`"isolation_verified": true`. The command connects to LangSmith to validate the dataset and uses
+disposable local browser sessions to verify isolation.
 
 Then run one serial experiment. Each dataset row runs once by default; use
 `--num-repetitions 5` for the small repeated pilot described in the evaluation handbook.
@@ -92,14 +137,67 @@ BROWSER_ALLOW_PRIVATE_NETWORK=true \
 uv run python -m evals.network_capture.langsmith_agent_eval \
   --fixture-base-url http://127.0.0.1:8766 \
   --experiment-prefix network-capture-agent-baseline \
-  --num-repetitions 1
+  --num-repetitions 5
 ```
+
+Five repetitions run the documented pilot: three cases times five repetitions, for 15 planned
+trials. Use `--num-repetitions 1` for a three-trial smoke run. Local artifacts and isolation
+records are written below `runs/evals/network-capture-langsmith/`; the command prints the remote
+LangSmith experiment name, ID and URL after completion.
 
 The evaluator reports `capture_pass`, `capture_recall`, `failure_summary_recall`,
 `no_unexpected_requests`, `evidence_retained`, and `oracle_consistent`. Infrastructure failures
 remain attempted rows; recall is null when capture is unavailable or a case has no seeded HTTP
 failures. The deterministic local grader supplies these scores. This command does not evaluate
 the grader challenge corpus.
+
+### Trial isolation and verification
+
+The evaluation adapter implements the core's existing `BrowserConnection` interface. Each trial
+owns one new MCP session and isolated browser context. The evaluator closes the browser and
+terminates the session after success, failure or cancellation, with bounded setup and cleanup.
+Failed readiness, deployment verification or cleanup stops further browser/model trials and
+makes the evaluation command fail. Subsequent SDK target invocations return failing runner
+outcomes; a complete planned-attempt manifest and remote publication read-back remain separate
+work.
+
+Preflight seeds cookies, local/session storage, IndexedDB, Cache Storage and distinct network
+requests on a fixed probe route. It checks a second context while the first is still alive,
+then repeats the clean-context check after cancelling a seeded session. The probe pages report
+a fingerprint of the local fixture and oracle files. Service workers are disabled by deployment.
+Probe actions occur in disposable sessions and never enter measured trial traffic or budgets.
+
+For each actual case, readiness is verified from the agent's ordinary navigation/snapshot:
+the exact case URL, case title and `Network fixture ready` heading must be present. No evaluator
+navigation, sleeps or hidden capture calls are inserted into that session. For these fixtures,
+the heading follows the parser-blocking request chain; delayed/pending traffic needs its own
+future observation-window contract.
+
+Private JSON records live under `<output-dir>/_isolation/<setup-id>/`: `preflight.json` records
+probes and their cleanup; `trial-*.json` records case/run identity, readiness, timing, cleanup,
+deployment and MCP/Playwright/browser/client versions, configured model parameters, task budgets
+and source/dataset/grader provenance. Provider-reported model identity remains in the linked
+run's `decisions.jsonl`, including null when unavailable. The directory is covered by `runs/`
+in `.gitignore`; records use owner-only permissions. Raw setup responses are not uploaded.
+
+Run the reproducible browser verification without provider or LangSmith credentials:
+
+```bash
+QA_BROWSER_LIVE_MCP=1 uv run pytest -c pyproject.toml \
+  tests/integration/test_trial_isolation.py -n 0 -q -s
+```
+
+This checks the probes, cancellation of an actual agent trial, and all three cases with a
+scripted model and the real browser/grader. Records remain in `runs/isolation-verification/`.
+It validates infrastructure, not real-model performance. Unit tests cover failure paths with
+injected fakes and prohibit network calls. Task cancellation is tested; abrupt process/host
+termination cannot guarantee in-process cleanup, so restart the dedicated stack before retrying.
+
+Stop the stack after use:
+
+```bash
+docker compose -f evals/network_capture/compose.yaml down
+```
 
 ## Grade the saved run offline
 

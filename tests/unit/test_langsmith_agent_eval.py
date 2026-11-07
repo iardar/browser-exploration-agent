@@ -7,7 +7,7 @@ import json
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -212,7 +212,13 @@ def test_source_metadata_fingerprints_local_inputs_even_without_a_git_revision(
     root = tmp_path / "evals" / "network_capture"
     root.mkdir(parents=True)
     inputs = (root / "cases.json", root / "requests.csv")
-    for path in (*inputs, tmp_path / "pyproject.toml", tmp_path / "uv.lock"):
+    for path in (
+        *inputs,
+        root / "probe.js",
+        root / "compose.yaml",
+        tmp_path / "pyproject.toml",
+        tmp_path / "uv.lock",
+    ):
         path.write_text("version-one")
     monkeypatch.setattr(evaluation, "ROOT", root)
     monkeypatch.setattr(evaluation, "_ORACLE_HASH_INPUTS", inputs)
@@ -243,12 +249,22 @@ def setup_runner(
     )
     monkeypatch.setattr(
         evaluation,
-        "check_connection",
-        AsyncMock(
-            return_value={
-                "status": "connected",
-                "capabilities": {"network": "browser_network_requests"},
-            }
+        "TrialIsolation",
+        Mock(
+            return_value=SimpleNamespace(
+                prepare=AsyncMock(),
+                directory=tmp_path / "setup",
+                failed=False,
+                deployment={},
+                versions={},
+                connection=Mock(
+                    side_effect=lambda *args: SimpleNamespace(
+                        record={"readiness": "ready", "cleanup": "passed"},
+                        path=tmp_path / "trial.json",
+                        save=Mock(),
+                    )
+                ),
+            )
         ),
     )
     return argparse.Namespace(
@@ -258,6 +274,8 @@ def setup_runner(
         check_only=False,
         experiment_prefix="unit-test",
         num_repetitions=2,
+        mcp_url=evaluation.DEFAULT_MCP_URL,
+        deployment_container=evaluation.DEFAULT_CONTAINER,
     )
 
 
@@ -288,8 +306,9 @@ async def test_preflight_failure_prevents_experiment_creation(
     if failure == "network_boundary":
         monkeypatch.delenv("BROWSER_NETWORK_RESTRICTED")
     else:
-        response = {"status": "failed"} if failure == "mcp_failed" else {"status": "connected"}
-        monkeypatch.setattr(evaluation, "check_connection", AsyncMock(return_value=response))
+        cast(
+            Mock, evaluation.TrialIsolation
+        ).return_value.prepare.side_effect = evaluation.IsolationError(failure)
     with pytest.raises(evaluation.EvaluationSetupError):
         await evaluation.run_evaluation(setup_runner)
     client.aevaluate.assert_not_called()
@@ -312,7 +331,9 @@ async def test_runner_grades_real_local_artifacts_and_uploads_only_compact_field
     )
     result, directory = await run_network_replay(tmp_path, "NET-002", model)
     explorer = SimpleNamespace(explore=AsyncMock(return_value=result))
-    monkeypatch.setattr(evaluation, "AutonomousBrowserExplorer", lambda settings: explorer)
+    monkeypatch.setattr(
+        evaluation, "AutonomousBrowserExplorer", lambda settings, **kwargs: explorer
+    )
     finished = Mock(
         experiment_name="experiment", experiment_id="id", url="https://example.com/experiment"
     )
@@ -336,6 +357,7 @@ async def test_runner_grades_real_local_artifacts_and_uploads_only_compact_field
             "run_error_codes",
             "grade",
             "execution",
+            "trial_isolation",
         }
         assert output["execution"]["browser_tool_calls"] == 3
         assert str(directory) not in json.dumps(output)
@@ -367,7 +389,9 @@ async def test_target_handles_changed_inputs_and_sanitizes_runtime_failures(
         else RuntimeError("private-secret")
     )
     monkeypatch.setattr(
-        evaluation, "AutonomousBrowserExplorer", lambda settings: SimpleNamespace(explore=explore)
+        evaluation,
+        "AutonomousBrowserExplorer",
+        lambda settings, **kwargs: SimpleNamespace(explore=explore),
     )
 
     async def evaluate(target: Any, **kwargs: Any) -> Any:
@@ -389,6 +413,42 @@ async def test_target_handles_changed_inputs_and_sanitizes_runtime_failures(
     client.aevaluate.side_effect = evaluate
     with pytest.raises(StopAsyncIteration):
         await evaluation.run_evaluation(setup_runner)
+
+
+@pytest.mark.parametrize("fault", ["readiness", "cleanup"])
+async def test_trial_isolation_failure_blocks_later_explorations_and_completion(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Mock,
+    setup_runner: argparse.Namespace,
+    fault: str,
+) -> None:
+    owner = cast(Mock, evaluation.TrialIsolation).return_value
+    connection = owner.connection("NET-001", "unused")
+    owner.connection.side_effect = None
+    owner.connection.return_value = connection
+    connection.record[fault] = "failed"
+    explore = AsyncMock(return_value=SimpleNamespace(run_id="failed-trial", status="completed"))
+    monkeypatch.setattr(
+        evaluation,
+        "AutonomousBrowserExplorer",
+        lambda settings, **kwargs: SimpleNamespace(explore=explore),
+    )
+    finished = SimpleNamespace(wait=AsyncMock())
+
+    async def evaluate(target: Any, **kwargs: Any) -> Any:
+        for row in client.list_examples.return_value[:2]:
+            output = await target(row.inputs)
+            assert output["run_status"] == "runner_error" and output["grade"] is None
+        assert owner.failed
+        assert explore.await_count == 1
+        assert connection.record["status"] == "not_started"
+        assert connection.save.call_count == 2
+        return finished
+
+    client.aevaluate.side_effect = evaluate
+    with pytest.raises(evaluation.EvaluationSetupError, match="isolation failure"):
+        await evaluation.run_evaluation(setup_runner)
+    finished.wait.assert_awaited_once()
 
 
 @pytest.mark.parametrize("repetitions", ["0", "21", "-1"])

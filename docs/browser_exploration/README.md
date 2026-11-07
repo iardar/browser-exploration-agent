@@ -19,16 +19,32 @@ The Python client does not require the Python Playwright package. The operator s
 Microsoft Playwright MCP server with a compatible installed browser. The client does not start
 that server, launch a local browser, or reuse an IDE's MCP session.
 
-A native setup used for the historical smoke test was:
+Use this pinned host setup for normal application runs:
 
 ```bash
-npx --yes @playwright/mcp@0.0.83 --headless --isolated --port 8931 --host 127.0.0.1 \
+npx --yes @playwright/mcp@0.0.83 --browser chromium --headless --isolated \
+  --port 8931 --host 127.0.0.1 \
   --allowed-hosts localhost:8931,127.0.0.1:8931
 ```
 
-That is a recorded version, not a claim about the latest release. Pin an evaluated server/browser
-combination for your deployment. The Python dependencies retain MCP SDK `>=1.26,<2`; update the
-SDK and `langchain-mcp-adapters` together and validate session continuity after an upgrade.
+The `--isolated` flag keeps the browser profile in memory instead of loading or saving persistent
+profile state. If an existing host process was started without that flag, stop it and restart it
+with the command above before relying on disposable profile state. This is a pinned evaluated
+version, not a claim about the latest release. The Python dependencies retain MCP SDK
+`>=1.26,<2`; update the SDK and `langchain-mcp-adapters` together and validate session continuity
+after an upgrade.
+
+The application and the network evaluation use different MCP deployments:
+
+- Normal application: host Playwright MCP at `http://127.0.0.1:8931/mcp`, started with the
+  `npx` command above.
+- Network evaluation: pinned Compose stack at `http://127.0.0.1:8932/mcp`, started with the
+  command in the evaluation runbook.
+
+The evaluation runner inspects the Docker containers, image digests, launch flags and network.
+It therefore rejects the host `npx` endpoint even when that server is otherwise usable by the
+normal application. See the
+[evaluation runbook](../../evals/network_capture/README.md#run-the-langsmith-agent-capture-evaluation).
 
 The commands check different dependencies:
 
@@ -120,11 +136,18 @@ availability must be checked on the deployment host; this guide does not claim a
 After the fixture and external controls are ready, configure credentials through the environment
 or an untracked `.env`. Do not put actual keys in commands or committed examples.
 
+For the host setup, keep the `npx` MCP process running in one terminal and the target or fixture
+running in another. The following commands run in a third terminal from the repository root:
+
 ```bash
 export OPENAI_MODEL=YOUR_APPROVED_MODEL
+export PLAYWRIGHT_MCP_URL=http://127.0.0.1:8931/mcp
 # Supply OPENAI_API_KEY through your environment or secret manager.
 # Attest only after independently enforcing the network controls above.
 export BROWSER_NETWORK_RESTRICTED=true
+
+uv run qa-browser check
+uv run qa-browser check-model --model YOUR_APPROVED_MODEL
 
 BROWSER_ALLOW_PRIVATE_NETWORK=true uv run qa-browser run \
   --url http://127.0.0.1:8765/ \
@@ -145,7 +168,8 @@ settings; Settings defaults are not automatically copied into independently cons
 Direct Settings construction does not load `.env` for you. Inspect returned status, including
 `cancelled`, and handle task-validation or artifact-storage exceptions at the caller boundary.
 
-Shut down the controlled demo when finished:
+Stop the host MCP process and fixture with `Ctrl-C` when finished. If you used the controlled
+Docker demo instead, shut it down with:
 
 ```bash
 docker compose -f examples/browser_exploration/compose.yaml down

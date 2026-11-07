@@ -63,7 +63,51 @@ environment when both distributions are installed on one machine.
 VS Code includes three debug profiles: offline demonstration, live browser exploration, and unit
 tests. See the [debugging guide](docs/debugging.md) for setup, prerequisites, and breakpoint locations.
 
-## Run modes
+## Run the application
+
+The normal application uses a Playwright MCP server started on the host with `npx`. From the
+repository root, use separate terminals for the server and the application.
+
+Terminal 1 — start the MCP server on port 8931:
+
+```bash
+npx --yes @playwright/mcp@0.0.83 --browser chromium --headless --isolated \
+  --port 8931 --host 127.0.0.1 \
+  --allowed-hosts localhost:8931,127.0.0.1:8931
+```
+
+Terminal 2 — serve the bundled local example, or start your authorized target:
+
+```bash
+python -m http.server 8765 --bind 127.0.0.1 --directory examples/browser_exploration
+```
+
+Terminal 3 — configure the client, check both dependencies, and run:
+
+```bash
+uv sync --locked
+export PLAYWRIGHT_MCP_URL=http://127.0.0.1:8931/mcp
+export OPENAI_MODEL=YOUR_APPROVED_MODEL
+# Supply OPENAI_API_KEY through the environment or an untracked .env.
+# Set this only after browser network restrictions are active.
+export BROWSER_NETWORK_RESTRICTED=true
+
+uv run qa-browser check
+uv run qa-browser check-model --model YOUR_APPROVED_MODEL
+
+BROWSER_ALLOW_PRIVATE_NETWORK=true uv run qa-browser run \
+  --url http://127.0.0.1:8765/ \
+  --goal 'Explore the static article and report observed behavior.' \
+  --allowed-domain 127.0.0.1 \
+  --output-dir runs
+```
+
+The network-capture evaluation uses a separate pinned Docker deployment on port 8932. The
+evaluation runner does not use or replace the host `npx` process on port 8931. Follow the
+[evaluation runbook](evals/network_capture/README.md#run-the-langsmith-agent-capture-evaluation)
+for its prerequisites, preflight and cleanup commands.
+
+## Other run modes
 
 ```bash
 # Offline synthetic demonstration; no model/browser service.

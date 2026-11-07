@@ -12,12 +12,13 @@ live experiments must establish how reliably the agent fulfills its objectives.
 
 | Capability | Current evidence and limits |
 | --- | --- |
-| Offline unit tests | The latest local run passed 782 tests after adding 110 cases. Browser core coverage reached 99.11% of lines and 97.52% of branches. These results use injected transports and models. See the [testing guide](browser_exploration/testing.md#measure-source-coverage) for reproduction. |
+| Offline unit tests | The earlier coverage snapshot passed 782 tests after adding 110 cases. Browser core coverage reached 99.11% of lines and 97.52% of branches. These results use injected transports and models. Isolation adds further unit coverage; see the [testing guide](browser_exploration/testing.md#measure-source-coverage) for reproduction. |
 | Agent dataset | [Three controlled cases](../evals/network_capture/cases.json): healthy traffic, a seeded HTTP 500, and a large listing with late HTTP 500/404 failures. All use the same objective. |
 | Request oracle | [Reviewed request CSV](../evals/network_capture/requests.csv) defines expected methods, paths and statuses. Expected answers are excluded from the agent's task. |
 | Deterministic grader | [grade_run](../evals/network_capture/grade.py) checks request coverage, evidence retention and consistency, compact summary accuracy, task configuration and budgets. A `completed` status alone cannot pass. |
 | Grader regression corpus | [30 challenge scenarios](../evals/network_capture/grader_cases.json), comprising 7 valid controls and 23 corruptions. Version 2 accepts all controls and rejects all corruptions in the documented development comparison. These cases were used to improve the grader. |
 | LangSmith runner | [Native evaluation runner](../evals/network_capture/langsmith_agent_eval.py) validates remote examples against local inputs, runs serially, supports repetitions, and publishes compact scores and execution metrics. Raw browser evidence stays local. |
+| Independent trials | Dedicated deployment and session lifecycle checks passed with a real browser: storage/history probes, cancellation cleanup, and all three fixture cases using a scripted model. This is infrastructure verification, not a real-model baseline. |
 | Real-model component tests | Opt-in tests in `tests/live_llm/` use a real model with a synthetic browser. Saved local component artifacts exist; they do not exercise real MCP/browser collection. |
 | Live baseline | No saved experiments were found in the runner's default local directory, `runs/evals/network-capture-langsmith/`, during this review. Remote LangSmith experiments and alternate output locations were not audited, so this is a local evidence gap. |
 
@@ -29,7 +30,7 @@ artifact consistency.
 
 | Priority | Missing capability | Completion evidence |
 | --- | --- | --- |
-| P0 | Independent live trials | Fresh browser context and confirmed fixture readiness for every attempt, with setup failures recorded. |
+| P0 — implemented | Independent live trials | Dedicated pinned MCP deployment, verified isolated sessions, fixture readiness and private setup/cleanup records. See below. |
 | P0 | Verified live baseline | All three cases run five times through the real model, MCP and browser; every planned trial is accounted for. |
 | P0 | Durable experiment receipt and read-back | Local manifest links attempts, artifacts and remote runs; expected rows and feedback are verified after evaluation. |
 | P1 | Representative evaluation cases | Broader traffic, failure, recovery and interaction scenarios, with a reserved evaluation split. |
@@ -40,27 +41,39 @@ artifact consistency.
 
 ### Independent live trials
 
-The runner constructs a new explorer for each example and sets `max_concurrency=1`. It does
-not explicitly create or reset the browser context. A new MCP connection alone does not prove
-that cookies, cache, open pages or recorded requests were cleared. The current operating
-instructions require the operator to provide a fresh context.
+Implemented using approach 1: one isolated browser context per MCP session on a dedicated
+server. The [evaluation adapter](../evals/network_capture/isolation.py) uses the existing
+`BrowserConnection` injection point; production agent behavior and public contracts are unchanged.
 
-Add orchestration around each trial that:
+The five implementation checks are:
 
-1. Allocates a fresh browser context or independently restarted browser instance.
-2. Confirms fixture accessibility from the browser's network environment and verifies that the
-   reviewed fixture version is running.
-3. Establishes the case's observation window and readiness condition before assessing capture.
-   Delayed-request cases need explicit timing expectations; arbitrary sleeps are insufficient.
-4. Records reset/readiness outcomes and closes resources after success, failure or cancellation.
-5. Records configured and provider-reported model identity, model parameters, task budgets,
-   source revision/hash, dataset/grader versions, and MCP/browser versions.
+1. **Controlled deployment.** Digest-pinned Compose images, explicit `--isolated`, no shared
+   context, preloaded storage or persistent profile, blocked service workers, and an internal
+   browser network. Runtime inspection rejects changed flags/endpoints and container restarts.
+2. **Owned lifecycle.** Each measured trial gets one new session. Bounded setup and browser/session
+   cleanup run after success, failure and cancellation. Failed isolation stops later trials.
+3. **Verified separation.** Disposable probes seed browser storage and traffic, check another
+   context while the first remains alive, and check a fresh context after cancellation. The
+   served fixture fingerprint must match local sources. Probes stay outside measured sessions.
+4. **Measured readiness.** The agent's ordinary navigation/snapshot must show the exact case URL,
+   case title and final ready heading. No hidden navigation or capture is added. The current
+   parser-blocking fixtures establish readiness this way; delayed-request scenarios still need
+   their own explicit observation windows.
+5. **Retained evidence.** Private preflight/trial JSON records retain readiness, setup/cleanup
+   timings, run identity, deployment/runtime versions, task budgets and evaluation provenance.
+   Configured model settings are recorded; provider-reported identity remains in the linked
+   run's decisions artifact, with null preserved when unavailable.
 
-The existing `--check-only` validates dataset access, fixture URL settings and MCP capabilities.
-It does not navigate the fixture or prove browser readiness. External browser network controls
-remain a deployment prerequisite; `BROWSER_NETWORK_RESTRICTED=true` only records an attestation.
-Keep trial orchestration in evaluation tooling or a deployment adapter, preserving the core
-`BrowserExplorer.explore(task)` boundary.
+`--check-only` now launches browser probes without model calls. The opt-in integration test
+checks real isolation, trial cancellation and all three cases with a scripted model and real
+browser/grader. Unit tests cover deployment drift, leaked state/history, readiness failures,
+cleanup errors/timeouts and cancellation with injected fakes. See the
+[run instructions](../evals/network_capture/README.md#trial-isolation-and-verification).
+
+External network controls remain a deployment prerequisite; the attestation setting does not
+install them. Abrupt process/host termination cannot guarantee in-process cleanup; restart the
+dedicated stack before retrying. This implementation does not establish a real-model baseline,
+a complete planned-attempt manifest, or remote feedback publication verification.
 
 ### Experiment accounting and publication verification
 

@@ -1,18 +1,43 @@
 """Serve deterministic local pages; starting this server is an explicit operator action."""
 
 import argparse
+import hashlib
 import html
 import json
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-from .dataset import load_case, load_dataset, load_requests
+from .dataset import ROOT, load_case, load_dataset, load_requests
+
+
+def fixture_fingerprint() -> str:
+    """Identify the served fixture implementation and oracle without changing case inputs."""
+    digest = hashlib.sha256()
+    for name in ("fixture.py", "dataset.py", "probe.js", "cases.json", "requests.csv"):
+        digest.update(name.encode() + b"\0" + (ROOT / name).read_bytes())
+    return digest.hexdigest()
+
+
+# Identify the implementation loaded by this server, not edited files it has not reloaded.
+_SERVING_FINGERPRINT = fixture_fingerprint()
 
 
 def fixture_response(path: str) -> tuple[int, str, bytes]:
     """Build a response without sockets, so fixture contents can be verified offline."""
     if path == "/favicon.ico":
         return 204, "image/x-icon", b""
+    probe = re.fullmatch(r"/__eval__/(seed|check|traffic)/([a-f0-9]{32})", path)
+    if probe:
+        mode, token = probe.groups()
+        if mode == "traffic":
+            return 200, "text/plain", token.encode()
+        settings = json.dumps({"mode": mode, "token": token, "fingerprint": _SERVING_FINGERPRINT})
+        body = (
+            '<!doctype html><meta charset="utf-8"><h1 id="status">Isolation pending</h1>'
+            f"<script>window.probe={settings};{(ROOT / 'probe.js').read_text()}</script>"
+        )
+        return 200, "text/html; charset=utf-8", body.encode()
     for case in load_dataset()["cases"]:
         requests = load_requests(case["id"])
         if path == case["path"]:
