@@ -60,10 +60,10 @@ def install_client(monkeypatch: pytest.MonkeyPatch, client: LifecycleClient) -> 
 async def test_unknown_tool_is_rejected_without_invoking_any_registered_tool() -> None:
     """Verify unknown tool is rejected without invoking any registered tool.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unknown tool is rejected without invoking any
-            registered tool."""
+    Arrange: prepare `calls`, `session`.
+    Act: Call `session.call` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`; `failure.value.code == 'unsupported_tool'`; `calls == []`.
+    """
     calls: list[str] = []
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", calls)}, {"snapshot": "browser_snapshot"}
@@ -78,10 +78,11 @@ async def test_unknown_tool_is_rejected_without_invoking_any_registered_tool() -
 async def test_closed_transport_resources_are_classified_as_disconnects(error: Exception) -> None:
     """Verify closed transport resources are classified as disconnects.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for closed transport resources are classified as
-            disconnects."""
+    Arrange: Use `error` parameter; prepare `calls`, `session`.
+    Act: Call `session.call` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`; `failure.value.code == 'mcp_disconnected'`; `calls ==
+            ['browser_snapshot']`.
+    """
     calls: list[str] = []
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", calls, failure=error)},
@@ -96,9 +97,10 @@ async def test_closed_transport_resources_are_classified_as_disconnects(error: E
 async def test_unexpected_tool_failure_is_sanitized_and_not_retried() -> None:
     """Verify unexpected tool failure is sanitized and not retried.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unexpected tool failure is sanitized and not retried.
+    Arrange: prepare `calls`, `session`.
+    Act: Call `session.call` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`; `failure.value.code == 'tool_execution_error'`;
+            `'private-token' not in str(failure.value)`; `calls == ['browser_snapshot']`.
     """
     calls: list[str] = []
     session = mcp_client._ConnectedSession(
@@ -119,10 +121,12 @@ async def test_http_failures_preserve_status_without_leaking_headers_or_urls(
 ) -> None:
     """Verify http failures preserve status without leaking headers or urls.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for http failures preserve status without leaking headers
-            or urls."""
+    Arrange: Use `monkeypatch`, `status`, `grouped` parameters; prepare `request`, `error`,
+             `failure`, `client`, `calls`.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['status'] == 'failed'`; `result['error']['code'] == 'mcp_http_error'`;
+            `f'HTTP {status}' in result['error']['message']`; `calls == []`.
+    """
     request = httpx.Request(
         "POST",
         "https://mcp.example/mcp?token=private-token",
@@ -150,10 +154,11 @@ async def test_cleanup_failure_prevents_successful_connection_diagnostics(
 ) -> None:
     """Verify cleanup failure prevents successful connection diagnostics.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cleanup failure prevents successful connection
-            diagnostics."""
+    Arrange: Use `monkeypatch` parameter; prepare `client`, `calls`.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['status'] == 'failed'`; `result['error']['code'] == 'mcp_disconnected'`;
+            `'private-token' not in str(result)`; `calls == []`.
+    """
     client = LifecycleClient(exit_error=ConnectionError("private-token"))
     calls = install_client(monkeypatch, client)
     result = await mcp_client.check_connection(Settings())
@@ -169,9 +174,9 @@ async def test_body_failure_survives_an_additional_cleanup_exception(
 ) -> None:
     """Verify body failure survives an additional cleanup exception.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for body failure survives an additional cleanup exception.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Raise during the MCP session body while its cleanup also fails.
+    Assert: Check `raises ValueError`; `failure.value is original`; `client.exits == 1`.
     """
     client = LifecycleClient(exit_error=ConnectionError("cleanup failed"))
     install_client(monkeypatch, client)
@@ -188,10 +193,10 @@ async def test_connection_initialization_cancellation_is_not_a_failure_result(
 ) -> None:
     """Verify connection initialization cancellation is not a failure result.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for connection initialization cancellation is not a failure
-            result."""
+    Arrange: Use `monkeypatch` parameter; prepare `client`, `calls`.
+    Act: Call `mcp_client.check_connection` under `pytest.raises(asyncio.CancelledError)`.
+    Assert: Check `raises asyncio.CancelledError`; `calls == []`.
+    """
     client = LifecycleClient(enter_error=asyncio.CancelledError())
     calls = install_client(monkeypatch, client)
     with pytest.raises(asyncio.CancelledError):
@@ -204,9 +209,9 @@ async def test_cancellation_inside_initialized_session_closes_it_once(
 ) -> None:
     """Verify cancellation inside initialized session closes it once.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancellation inside initialized session closes it once.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Cancel inside an initialized MCP session and let its context manager exit.
+    Assert: Check `raises asyncio.CancelledError`; `client.enters == client.exits == 1`.
     """
     client = LifecycleClient()
     install_client(monkeypatch, client)
@@ -221,10 +226,11 @@ async def test_missing_distribution_metadata_does_not_make_connection_check_fail
 ) -> None:
     """Verify missing distribution metadata does not make connection check fail.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for missing distribution metadata does not make connection
-            check fail."""
+    Arrange: Use `monkeypatch` parameter; prepare `client`.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['status'] == 'connected'`; `result['client_versions'] == {'mcp': None,
+            'langchain-mcp-adapters': 'adapter-version'}`.
+    """
     client = LifecycleClient()
     install_client(monkeypatch, client)
 
@@ -244,9 +250,11 @@ async def test_discovery_without_required_capabilities_closes_session(
 ) -> None:
     """Verify discovery without required capabilities closes session.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for discovery without required capabilities closes session.
+    Arrange: Use `monkeypatch` parameter; prepare `client`.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['error']['code'] == 'missing_browser_tools'`; `'navigate' in
+            result['error']['message']`; `'snapshot' in result['error']['message']`; `client.exits
+            == 1`.
     """
     client = LifecycleClient()
     install_client(monkeypatch, client)

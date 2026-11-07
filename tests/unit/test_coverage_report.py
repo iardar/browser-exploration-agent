@@ -30,9 +30,11 @@ def sample_report() -> dict[str, Any]:
 def test_totals_weight_counts_and_handle_files_without_branches() -> None:
     """Verify totals weight counts and handle files without branches.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for totals weight counts and handle files without branches.
+    Arrange: prepare `files`.
+    Act: Evaluate `pytest.approx` in the assertion.
+    Assert: Check `total['lines_percent'] == pytest.approx(100 * 93 / 104)`;
+            `total['branches_percent'] == 50`;
+            `coverage_report.coverage_totals({})['branches_percent'] == 100`.
     """
     files = sample_report()["files"]
     files["scripts/large.py"] = {
@@ -52,10 +54,12 @@ def test_totals_weight_counts_and_handle_files_without_branches() -> None:
 def test_comparison_preserves_previous_snapshot_and_discloses_changed_scope(tmp_path: Path) -> None:
     """Verify comparison preserves previous snapshot and discloses changed scope.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for comparison preserves previous snapshot and discloses
-            changed scope."""
+    Arrange: Use `tmp_path` parameter; prepare `before, after`.
+    Act: Evaluate `path.read_bytes` in the assertion.
+    Assert: Check `'66.67% | 100.00% | +33.33' in comparison`; `'scripts/removed.py | present |
+            absent | scope changed' in comparison`; `'scripts/added.py | absent | present | scope
+            changed' in comparison`; `path.read_bytes() == original`.
+    """
     before, after = tmp_path / "before", tmp_path / "after"
     before.mkdir()
     after.mkdir()
@@ -85,10 +89,13 @@ def test_runner_preserves_failures_and_records_only_offline_commands(
 ) -> None:
     """Verify runner preserves failures and records only offline commands.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for runner preserves failures and records only offline
-            commands."""
+    Arrange: Use `monkeypatch`, `tmp_path`, `exit_code`, `has_report` parameters; prepare
+             `directory`, `metadata`, `original`.
+    Act: Call `coverage_report.main` under `pytest.raises(SystemExit)`.
+    Assert: Check `coverage_report.main(['--label', 'trial', '--sandbox-polling']) == exit_code`;
+            `metadata['pytest_exit_code'] == exit_code`; `metadata['source_sha256']`;
+            `environment['COVERAGE_FILE'] == str(directory / '.coverage')`.
+    """
     monkeypatch.setattr(coverage_report, "REPORTS", tmp_path / "reports")
     monkeypatch.setenv("PYTEST_ADDOPTS", "--live-llm --reportportal")
     monkeypatch.setenv("LANGSMITH_API_KEY", "private-secret")
@@ -146,9 +153,9 @@ def test_invalid_options_do_not_create_a_snapshot(
 ) -> None:
     """Verify invalid options do not create a snapshot.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid options do not create a snapshot.
+    Arrange: Use `monkeypatch`, `tmp_path`, `arguments` parameters; prepare `reports`.
+    Act: Call `coverage_report.main` under `pytest.raises(SystemExit)`.
+    Assert: Check `raises SystemExit`; `caught.value.code == 2`; `not reports.exists()`.
     """
     reports = tmp_path / "reports"
     monkeypatch.setattr(coverage_report, "REPORTS", reports)

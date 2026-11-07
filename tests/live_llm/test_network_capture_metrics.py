@@ -20,9 +20,11 @@ async def test_llm_tool_selection_precision_and_capture_recall(
 ) -> None:
     """Score tool choice, static-resource scope, oracle recall, and request precision.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for llm tool selection precision and capture recall.
+    Arrange: Use `live_decision_model`, `live_artifact_dir` parameters.
+    Act: Await `run_network_replay` to obtain `result, directory`.
+    Assert: Check `result.status == 'completed'`; `report['passed']`;
+            `report['checks']['one_successful_network_capture']`; `1 <= result.metrics.llm_calls <=
+            2`.
     """
     result, directory = await run_network_replay(
         live_artifact_dir,
@@ -49,9 +51,10 @@ async def test_llm_evidence_grounding_and_known_failure_recall(
 ) -> None:
     """Score evidence traceability and whether the seeded HTTP 500 is preserved.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for llm evidence grounding and known failure recall.
+    Arrange: Use `live_decision_model`, `live_artifact_dir` parameters.
+    Act: Await `run_network_replay` to obtain `result, directory`.
+    Assert: Check `result.status == 'completed'`; `report['passed']`;
+            `report['checks']['linked_retained_evidence']`; `1 <= result.metrics.llm_calls <= 2`.
     """
     result, directory = await run_network_replay(
         live_artifact_dir,
@@ -96,9 +99,11 @@ async def test_llm_long_context_failure_recall_and_summary_budget(
 ) -> None:
     """Score recall of late failures in the 203-request edge case and summary compactness.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for llm long context failure recall and summary budget.
+    Arrange: Use `live_decision_model`, `live_artifact_dir` parameters.
+    Act: Await `run_network_replay` to obtain `result, directory`.
+    Assert: Check `result.status == 'completed'`; `report['passed']`;
+            `report['checks']['all_expected_requests_retained']`; `1 <= result.metrics.llm_calls <=
+            2`.
     """
     result, directory = await run_network_replay(
         live_artifact_dir,

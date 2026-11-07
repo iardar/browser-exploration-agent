@@ -37,9 +37,10 @@ def client() -> Mock:
 def test_dataset_readback_accepts_all_cases_in_any_order(client: Mock) -> None:
     """Verify dataset readback accepts all cases in any order.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for dataset readback accepts all cases in any order.
+    Arrange: Use `client` parameter.
+    Act: Call `evaluation._validate_dataset` to obtain `examples`.
+    Assert: Check `{example.inputs['case_id'] for example in examples if e equals values 'NET-001',
+            'NET-002', 'NET-003'`.
     """
     client.list_examples.return_value.reverse()
     examples = evaluation._validate_dataset(client, evaluation.DATASET_ID)
@@ -72,9 +73,9 @@ def test_dataset_readback_accepts_all_cases_in_any_order(client: Mock) -> None:
 def test_dataset_drift_prevents_evaluation(client: Mock, corruption: str) -> None:
     """Verify dataset drift prevents evaluation.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for dataset drift prevents evaluation.
+    Arrange: Use `client`, `corruption` parameters; prepare `dataset`, `examples`.
+    Act: Call `evaluation._validate_dataset` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`.
     """
     dataset = client.read_dataset.return_value
     examples = client.list_examples.return_value
@@ -109,9 +110,10 @@ def test_dataset_drift_prevents_evaluation(client: Mock, corruption: str) -> Non
 def test_remote_errors_do_not_expose_response_text(client: Mock, method: str) -> None:
     """Verify remote errors do not expose response text.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for remote errors do not expose response text.
+    Arrange: Use `client`, `method` parameters.
+    Act: Call `evaluation._validate_dataset` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`; `'private-secret' not in
+            str(caught.value)`.
     """
     getattr(client, method).side_effect = RuntimeError("Bearer private-secret")
     with pytest.raises(evaluation.EvaluationSetupError, match="RuntimeError") as caught:
@@ -125,9 +127,10 @@ def test_remote_errors_do_not_expose_response_text(client: Mock, method: str) ->
 def test_local_fixture_requires_explicit_permission(base: str) -> None:
     """Verify local fixture requires explicit permission.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for local fixture requires explicit permission.
+    Arrange: Use `base` parameter.
+    Act: Call `evaluation._fixture_url` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`; `evaluation._fixture_url() equals values
+            '/case'`.
     """
     with pytest.raises(evaluation.EvaluationSetupError, match="ALLOW_PRIVATE_NETWORK"):
         evaluation._fixture_url(base, "/case", Settings())
@@ -155,10 +158,10 @@ def test_local_fixture_requires_explicit_permission(base: str) -> None:
 def test_fixture_origin_and_case_path_cannot_redirect_the_target(base: str, path: str) -> None:
     """Verify fixture origin and case path cannot redirect the target.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for fixture origin and case path cannot redirect the
-            target."""
+    Arrange: Use `base`, `path` parameters.
+    Act: Call `evaluation._fixture_url` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`.
+    """
     with pytest.raises(evaluation.EvaluationSetupError):
         evaluation._fixture_url(base, path, Settings())
 
@@ -173,9 +176,9 @@ def scores(outputs: Any, reference: Any, case_id: str = "NET-001") -> dict[str, 
 def test_feedback_preserves_failure_zero_and_unmeasured_values(client: Mock) -> None:
     """Verify feedback preserves failure zero and unmeasured values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for feedback preserves failure zero and unmeasured values.
+    Arrange: Use `client` parameter.
+    Act: Evaluate `scores` in the assertion.
+    Assert: Check `scores() equals values 'capture_pass', 'oracle_consistent', 'capture_recall'`.
     """
     reference = client.list_examples.return_value[0].outputs
     assert scores(
@@ -216,9 +219,9 @@ def test_feedback_preserves_failure_zero_and_unmeasured_values(client: Mock) -> 
 def test_missing_or_malformed_grade_cannot_pass(client: Mock, output: Any) -> None:
     """Verify missing or malformed grade cannot pass.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for missing or malformed grade cannot pass.
+    Arrange: Use `client`, `output` parameters.
+    Act: Call `scores` to obtain `feedback`.
+    Assert: Check `feedback equals values 'capture_pass', 'oracle_consistent', 'capture_recall'`.
     """
     feedback = scores(output, client.list_examples.return_value[0].outputs)
     assert feedback == {
@@ -237,9 +240,10 @@ def test_missing_or_malformed_grade_cannot_pass(client: Mock, output: Any) -> No
 def test_oracle_mismatch_invalidates_all_quality_scores(reference: Any) -> None:
     """Verify oracle mismatch invalidates all quality scores.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for oracle mismatch invalidates all quality scores.
+    Arrange: Use `reference` parameter.
+    Act: Evaluate `feedback.pop` in the assertion.
+    Assert: Check `feedback.pop('oracle_consistent') == 0`; `all((value is None for value in
+            feedback.values()))`.
     """
     feedback = scores({"grade": {"passed": True, "capture_recall": 1}}, reference)
     assert feedback.pop("oracle_consistent") == 0
@@ -249,9 +253,9 @@ def test_oracle_mismatch_invalidates_all_quality_scores(reference: Any) -> None:
 def test_unknown_case_cannot_match_a_reference(client: Mock) -> None:
     """Verify unknown case cannot match a reference.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unknown case cannot match a reference.
+    Arrange: Use `client` parameter.
+    Act: Call `scores` to obtain `feedback`.
+    Assert: Check `feedback['oracle_consistent'] == 0 and feedback['capture_pass'] is None`.
     """
     feedback = scores({}, client.list_examples.return_value[0].outputs, "NET-999")
     assert feedback["oracle_consistent"] == 0 and feedback["capture_pass"] is None
@@ -265,10 +269,13 @@ def test_source_metadata_fingerprints_local_inputs_even_without_a_git_revision(
 ) -> None:
     """Verify source metadata fingerprints local inputs even without a git revision.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for source metadata fingerprints local inputs even without
-            a git revision."""
+    Arrange: Use `monkeypatch`, `tmp_path`, `git_available` parameters; prepare `root`, `inputs`.
+    Act: Evaluate `evaluation._source_metadata` in the assertion.
+    Assert: Check `before['source_revision'] == ('revision' if git_available else 'unknown')`;
+            `before['source_dirty'] is (True if git_available else None)`; `before ==
+            evaluation._source_metadata()`; `evaluation._source_metadata()['source_snapshot_sha256']
+            differs from values 'source_snapshot_sha256'`.
+    """
     root = tmp_path / "evals" / "network_capture"
     root.mkdir(parents=True)
     inputs = (root / "cases.json", root / "requests.csv")
@@ -347,9 +354,10 @@ async def test_preflight_never_runs_an_agent(
 ) -> None:
     """Verify preflight never runs an agent.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for preflight never runs an agent.
+    Arrange: Use `monkeypatch`, `client`, `setup_runner`, `capsys` parameters; prepare `explorer`.
+    Act: Call `evaluation.run_evaluation`.
+    Assert: Check `status['status'] == 'ready' and status['model_calls'] == 0`;
+            `status['dataset_examples'] == 3`.
     """
     explorer = Mock(side_effect=AssertionError("Agent must not start during check-only"))
     monkeypatch.setattr(evaluation, "AutonomousBrowserExplorer", explorer)
@@ -371,9 +379,9 @@ async def test_preflight_failure_prevents_experiment_creation(
 ) -> None:
     """Verify preflight failure prevents experiment creation.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for preflight failure prevents experiment creation.
+    Arrange: Use `monkeypatch`, `client`, `setup_runner`, `failure` parameters.
+    Act: Call `evaluation.run_evaluation` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`.
     """
     if failure == "network_boundary":
         monkeypatch.delenv("BROWSER_NETWORK_RESTRICTED")
@@ -395,10 +403,14 @@ async def test_runner_grades_real_local_artifacts_and_uploads_only_compact_field
 ) -> None:
     """Verify runner grades real local artifacts and uploads only compact fields.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for runner grades real local artifacts and uploads only
-            compact fields."""
+    Arrange: Use `monkeypatch`, `client`, `setup_runner`, `capsys`, `tmp_path` parameters; prepare
+             `model`.
+    Act: Await `run_network_replay` to obtain `result, directory`.
+    Assert: Check `json.loads(capsys.readouterr().out)['result_rows'] == 1`; `submitted_task.url ==
+            BASE_URL + evaluation.load_case('NET-002')['path']`; `submitted_task.objective ==
+            evaluation.load_dataset()['objective']`; `scores(output, row.outputs,
+            'NET-002')['capture_pass'] == 1`.
+    """
     model = FakeModel(
         [
             DecisionResponse(
@@ -463,10 +475,11 @@ async def test_target_handles_changed_inputs_and_sanitizes_runtime_failures(
 ) -> None:
     """Verify target handles changed inputs and sanitizes runtime failures.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for target handles changed inputs and sanitizes runtime
-            failures."""
+    Arrange: Use `monkeypatch`, `client`, `setup_runner`, `failure` parameters; prepare `explore`.
+    Act: Call `evaluation.run_evaluation` under `pytest.raises(StopAsyncIteration)`.
+    Assert: Check `raises StopAsyncIteration`; `raises asyncio.CancelledError`;
+            `output['run_status'] == 'runner_error'`; `'private-secret' not in json.dumps(output)`.
+    """
     explore = AsyncMock(
         side_effect=asyncio.CancelledError()
         if failure == "cancel"
@@ -508,10 +521,12 @@ async def test_trial_isolation_failure_blocks_later_explorations_and_completion(
 ) -> None:
     """Verify trial isolation failure blocks later explorations and completion.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for trial isolation failure blocks later explorations and
-            completion."""
+    Arrange: Use `monkeypatch`, `client`, `setup_runner`, `fault` parameters; prepare `owner`,
+             `connection`, `explore`, `finished`.
+    Act: Call `evaluation.run_evaluation` under `pytest.raises(evaluation.EvaluationSetupError)`.
+    Assert: Check `raises evaluation.EvaluationSetupError`; `owner.failed`; `explore.await_count ==
+            1`; `output['run_status'] == 'runner_error' and output['grade'] is None`.
+    """
     owner = cast(Mock, evaluation.TrialIsolation).return_value
     connection = owner.connection("NET-001", "unused")
     owner.connection.side_effect = None
@@ -547,9 +562,9 @@ def test_cli_rejects_unbounded_repetitions(
 ) -> None:
     """Verify cli rejects unbounded repetitions.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cli rejects unbounded repetitions.
+    Arrange: Use `monkeypatch`, `repetitions` parameters.
+    Act: Call `evaluation._arguments` under `pytest.raises(SystemExit)`.
+    Assert: Check `raises SystemExit`; `caught.value.code == 2`.
     """
     monkeypatch.setattr("sys.argv", ["eval", "--num-repetitions", repetitions])
     with pytest.raises(SystemExit) as caught:
@@ -573,9 +588,9 @@ def test_cli_configuration_failures_are_actionable(
 ) -> None:
     """Verify cli configuration failures are actionable.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cli configuration failures are actionable.
+    Arrange: Use `monkeypatch`, `check_only`, `key`, `error` parameters.
+    Act: Call `evaluation.main` under `pytest.raises(SystemExit)`.
+    Assert: Check `raises SystemExit`.
     """
     monkeypatch.setattr(evaluation, "load_dotenv", lambda **kwargs: False)
     monkeypatch.setattr("sys.argv", ["eval", *(["--check-only"] if check_only else [])])

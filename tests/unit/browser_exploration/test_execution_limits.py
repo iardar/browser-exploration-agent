@@ -19,10 +19,12 @@ async def test_browser_budget_stops_even_a_model_that_always_requests_more(
 ) -> None:
     """Verify browser budget stops even a model that always requests more.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for browser budget stops even a model that always requests
-            more."""
+    Arrange: Use `tmp_path`, `max_steps` parameters; prepare `model`, `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'step_limit'`; `result.metrics.browser_tool_calls ==
+            len(connection.session.calls) == max_steps`; `result.metrics.llm_calls == max(0,
+            max_steps - 2)`; `connection.entries == connection.exits == 1`.
+    """
     model = FakeModel(
         [
             DecisionResponse(Decision(action=Action(name="browser_hover", arguments={"ref": "e2"})))
@@ -43,9 +45,11 @@ async def test_browser_budget_stops_even_a_model_that_always_requests_more(
 async def test_model_budget_stops_after_allowed_iterations(tmp_path: Path) -> None:
     """Verify model budget stops after allowed iterations.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model budget stops after allowed iterations.
+    Arrange: Use `tmp_path` parameter; prepare `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'model_limit'`; `result.metrics.llm_calls == len(model.requests)
+            == 1`; `result.metrics.browser_tool_calls == 3`; `result.errors[-1].code ==
+            'model_call_limit'`.
     """
     model = FakeModel(
         [
@@ -65,9 +69,9 @@ async def test_model_budget_stops_after_allowed_iterations(tmp_path: Path) -> No
 async def test_model_can_complete_on_its_last_allowed_iteration(tmp_path: Path) -> None:
     """Verify model can complete on its last allowed iteration.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model can complete on its last allowed iteration.
+    Arrange: Use `tmp_path` parameter.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `result.metrics.llm_calls == 1`.
     """
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=FakeConnection(), model=FakeModel()
@@ -81,10 +85,12 @@ async def test_actual_tool_timeout_records_failed_observation_and_closes_session
 ) -> None:
     """Verify actual tool timeout records failed observation and closes session.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for actual tool timeout records failed observation and
-            closes session."""
+    Arrange: Use `tmp_path` parameter; prepare `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.errors[-1].code == 'tool_timeout'`;
+            `result.metrics.failed_browser_tool_calls == 1`; `'outcome is unknown' in
+            observation['summary']`.
+    """
     connection = FakeConnection(FakeSession(blocked=True))
     result = await AutonomousBrowserExplorer(
         settings(tmp_path, tool_timeout_seconds=0.01), connection=connection, model=FakeModel()
@@ -101,9 +107,9 @@ async def test_actual_tool_timeout_records_failed_observation_and_closes_session
 async def test_mcp_transport_timeout_is_a_timeout_result(tmp_path: Path) -> None:
     """Verify mcp transport timeout is a timeout result.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for mcp transport timeout is a timeout result.
+    Arrange: Use `tmp_path` parameter; prepare `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.metrics.failed_browser_tool_calls == 1`.
     """
     connection = FakeConnection(FakeSession([MCPError("tool_timeout", "MCP timed out")]))
     result = await AutonomousBrowserExplorer(
@@ -118,10 +124,11 @@ async def test_wall_clock_deadline_interrupts_model_and_preserves_completed_obse
 ) -> None:
     """Verify wall clock deadline interrupts model and preserves completed observations.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for wall clock deadline interrupts model and preserves
-            completed observations."""
+    Arrange: Use `tmp_path` parameter; prepare `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.errors[-1].code == 'execution_timeout'`;
+            `result.metrics.browser_tool_calls == 2`; `len(saved['evidence']) == 2`.
+    """
     connection = FakeConnection()
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=connection, model=FakeModel(blocked=True)
@@ -140,10 +147,14 @@ async def test_wall_clock_deadline_interrupts_model_and_preserves_completed_obse
 async def test_cancellation_during_tool_returns_persisted_cancelled_status(tmp_path: Path) -> None:
     """Verify cancellation during tool returns persisted cancelled status.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancellation during tool returns persisted cancelled
-            status."""
+    Arrange: Use `tmp_path` parameter; prepare `session`.
+    Act: Start exploration with a blocked tool, cancel the task after the tool starts, and await
+         the persisted result.
+    Assert: Check `result.status == 'cancelled'`; `result.metrics.browser_tool_calls ==
+            result.metrics.failed_browser_tool_calls == 1`;
+            `result.metrics.successful_browser_tool_calls == 0`; `'interrupted' in
+            observation['summary']`.
+    """
     session = FakeSession(blocked=True)
     connection = FakeConnection(session)
     explorer = AutonomousBrowserExplorer(
@@ -167,9 +178,12 @@ async def test_cancellation_during_tool_returns_persisted_cancelled_status(tmp_p
 async def test_cancellation_during_model_keeps_browser_evidence(tmp_path: Path) -> None:
     """Verify cancellation during model keeps browser evidence.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancellation during model keeps browser evidence.
+    Arrange: Use `tmp_path` parameter.
+    Act: Start exploration with a blocked model, cancel after its request starts, and await the
+         result with the earlier browser observations.
+    Assert: Check `result.status == 'cancelled'`; `result.metrics.browser_tool_calls ==
+            result.metrics.successful_browser_tool_calls == 2`; `result.metrics.llm_calls == 1`;
+            `connection.exits == 1`.
     """
     model = FakeModel(blocked=True)
     connection = FakeConnection()
@@ -189,10 +203,13 @@ async def test_cancellation_during_model_keeps_browser_evidence(tmp_path: Path) 
 async def test_cancellation_during_connection_is_persisted_without_actions(tmp_path: Path) -> None:
     """Verify cancellation during connection is persisted without actions.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancellation during connection is persisted without
-            actions."""
+    Arrange: Use `tmp_path` parameter.
+    Act: Start exploration with a blocked connection, cancel before any browser action, and await
+         the persisted result.
+    Assert: Check `result.status == 'cancelled'`; `result.metrics.browser_tool_calls ==
+            result.metrics.llm_calls == 0`; `connection.exits == 1`; `saved['status'] ==
+            'cancelled'`.
+    """
     connection = FakeConnection(blocked=True)
     explorer = AutonomousBrowserExplorer(
         settings(tmp_path), connection=connection, model=FakeModel()
@@ -212,9 +229,10 @@ async def test_cancellation_during_connection_is_persisted_without_actions(tmp_p
 async def test_wall_clock_limit_includes_connection_setup(tmp_path: Path) -> None:
     """Verify wall clock limit includes connection setup.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for wall clock limit includes connection setup.
+    Arrange: Use `tmp_path` parameter; prepare `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.metrics.browser_tool_calls == 0`;
+            `connection.exits == 1`.
     """
     connection = FakeConnection(blocked=True)
     result = await AutonomousBrowserExplorer(
@@ -228,9 +246,10 @@ async def test_wall_clock_limit_includes_connection_setup(tmp_path: Path) -> Non
 async def test_caller_cannot_mutate_budgets_after_run_starts(tmp_path: Path) -> None:
     """Verify caller cannot mutate budgets after run starts.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for caller cannot mutate budgets after run starts.
+    Arrange: Use `tmp_path` parameter.
+    Act: Start a run with a two-step limit, raise the caller's task limit after it starts, then
+         release the blocked connection and await the result.
+    Assert: Check `result.status == 'step_limit'`; `result.metrics.browser_tool_calls == 2`.
     """
     connection = FakeConnection(blocked=True)
     original = task(max_steps=2)

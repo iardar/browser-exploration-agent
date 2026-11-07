@@ -43,10 +43,12 @@ def network_listing() -> str:
 def test_failures_after_a_long_successful_prefix_are_counted_and_selected_first() -> None:
     """Verify failures after a long successful prefix are counted and selected first.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for failures after a long successful prefix are counted and
-            selected first."""
+    Arrange: Start with `summarize_network_observation(network_listing(), 6000)`.
+    Act: Evaluate `summary.index` in the assertion.
+    Assert: Check `len(summary) <= 1000`; `'Network requests parsed: 204; HTTP errors: 2; failed: 1;
+            unknown outcome: 1.' in summary`; `'Request details omitted: 199.' in summary`;
+            `'private-query' not in summary`.
+    """
     summary = summarize_network_observation(network_listing(), 6_000)
 
     assert len(summary) <= 1_000
@@ -61,10 +63,12 @@ def test_failures_after_a_long_successful_prefix_are_counted_and_selected_first(
 def test_numbered_requests_preserve_static_filter_scope_and_redact_queries() -> None:
     """Verify numbered requests preserve static filter scope and redact queries.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for numbered requests preserve static filter scope and
-            redact queries."""
+    Arrange: Start with `summarize_network_observation()`.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `'Network requests parsed: 2; HTTP errors: 0; failed: 0; unknown outcome: 0.' in
+            summary`; `'Static requests omitted by tool: 21.' in summary`; `'private-limit' not in
+            summary`; `'REDACTED' in summary`.
+    """
     summary = summarize_network_observation(
         "### Result\n"
         "18. [GET] https://example.com/api/articles?limit=private-limit => [200] \n"
@@ -129,10 +133,10 @@ def test_request_outcomes_are_classified_without_assuming_success(
 ) -> None:
     """Verify request outcomes are classified without assuming success.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for request outcomes are classified without assuming
-            success."""
+    Arrange: Use `request_line`, `counts`, `detail` parameters.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `counts in summary`; `detail in summary`.
+    """
     summary = summarize_network_observation(request_line, 1_000)
     assert counts in summary
     assert detail in summary
@@ -142,9 +146,9 @@ def test_request_outcomes_are_classified_without_assuming_success(
 def test_network_summary_respects_both_context_caps(limit: int) -> None:
     """Verify network summary respects both context caps.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for network summary respects both context caps.
+    Arrange: Use `limit` parameter.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `len(summary) <= min(limit, 1000)`.
     """
     summary = summarize_network_observation(network_listing(), limit)
     assert len(summary) <= min(limit, 1_000)
@@ -153,10 +157,11 @@ def test_network_summary_respects_both_context_caps(limit: int) -> None:
 def test_long_urls_keep_the_status_and_make_omitted_details_explicit() -> None:
     """Verify long urls keep the status and make omitted details explicit.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for long urls keep the status and make omitted details
-            explicit."""
+    Arrange: Start with `summarize_network_observation()`.
+    Act: Evaluate `summary.count` in the assertion.
+    Assert: Check `'Network requests parsed: 8; HTTP errors: 8' in summary`; `'Request details
+            omitted: 3.' in summary`; `summary.count('[503] GET') == 5`; `len(summary) <= 1000`.
+    """
     summary = summarize_network_observation(
         "\n".join(
             f"[GET] https://example.com/{'x' * 500}/{index} => [503] Unavailable"
@@ -183,10 +188,11 @@ def test_long_urls_keep_the_status_and_make_omitted_details_explicit() -> None:
 def test_unrecognized_formats_keep_a_redacted_excerpt_and_unknown_counts(text: str) -> None:
     """Verify unrecognized formats keep a redacted excerpt and unknown counts.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unrecognized formats keep a redacted excerpt and
-            unknown counts."""
+    Arrange: Use `text` parameter.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `'Network request counts unknown; no recognized request lines.' in summary`;
+            `'HTTP errors: 0' not in summary`; `'private-password' not in summary`.
+    """
     summary = summarize_network_observation(text, 1_000)
     assert "Network request counts unknown; no recognized request lines." in summary
     assert "HTTP errors: 0" not in summary
@@ -196,10 +202,11 @@ def test_unrecognized_formats_keep_a_redacted_excerpt_and_unknown_counts(text: s
 def test_mixed_formats_disclose_unparsed_lines_instead_of_claiming_complete_counts() -> None:
     """Verify mixed formats disclose unparsed lines instead of claiming complete counts.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for mixed formats disclose unparsed lines instead of
-            claiming complete counts."""
+    Arrange: Start with `summarize_network_observation()`.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `'Network requests parsed: 1' in summary`; `'Unrecognized lines: 2; additional
+            request outcomes unknown.' in summary`.
+    """
     summary = summarize_network_observation(
         "### Result\n[GET] https://example.com/ => [200] OK\n"
         "UNKNOWN REQUEST FORMAT\nAdditional requests were omitted upstream.",
@@ -218,10 +225,13 @@ async def test_graph_uses_compact_network_context_and_retains_the_original_redac
 ) -> None:
     """Verify graph uses compact network context and retains the original redacted response.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for graph uses compact network context and retains the
-            original redacted response."""
+    Arrange: Use `tmp_path`, `tool_name`, `retain_raw` parameters; prepare `raw`, `session`,
+             `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `result.metrics.browser_tool_calls ==
+            result.metrics.successful_browser_tool_calls == 3`; `session.calls[-1] == (tool_name,
+            {'static': False})`; `not (directory / 'evidence').exists()`.
+    """
     raw = {"content": [{"type": "text", "text": network_listing()}], "isError": False}
     session = FakeSession([snapshot(), snapshot(), raw])
     session.tools, session.capabilities = discovered_tools(
@@ -270,10 +280,12 @@ async def test_network_tool_error_keeps_its_diagnostic_instead_of_becoming_a_req
 ) -> None:
     """Verify network tool error keeps its diagnostic instead of becoming a request summary.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for network tool error keeps its diagnostic instead of
-            becoming a request summary."""
+    Arrange: Use `tmp_path` parameter; prepare `raw`, `session`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'failed'`; `result.errors[-1].code == 'mcp_tool_error'`;
+            `observation['error'] is True`; `observation['summary'] == 'Network inspection
+            unavailable'`.
+    """
     raw = {"content": [{"type": "text", "text": "Network inspection unavailable"}], "isError": True}
     session = FakeSession([snapshot(), snapshot(), raw])
     session.tools, session.capabilities = discovered_tools(

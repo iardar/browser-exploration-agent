@@ -62,10 +62,11 @@ async def test_one_initialized_session_and_one_discovery_for_many_calls(
 ) -> None:
     """Verify one initialized session and one discovery for many calls.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for one initialized session and one discovery for many
-            calls."""
+    Arrange: Use `monkeypatch`, `client` parameters; prepare `calls`, `loads`.
+    Act: Open one MCP connection and make two tool calls through its initialized session.
+    Assert: Check `client.exits == 1`; `loads == [client.session_identity]`; `calls ==
+            ['browser_navigate', 'browser_snapshot']`; `client.enters == 1 and client.exits == 0`.
+    """
     calls: list[str] = []
     loads: list[object] = []
 
@@ -91,9 +92,10 @@ async def test_check_no_api_key_and_no_browser_actions(
 ) -> None:
     """Verify check no api key and no browser actions.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for check no api key and no browser actions.
+    Arrange: Use `monkeypatch`, `client` parameters; prepare `calls`.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['status'] == 'connected'`; `result['capabilities']['snapshot'] ==
+            'browser_snapshot'`; `calls == []`; `client.exits == 1`.
     """
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     calls: list[str] = []
@@ -114,9 +116,10 @@ async def test_connection_failure_is_structured_and_sanitized(
 ) -> None:
     """Verify connection failure is structured and sanitized.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for connection failure is structured and sanitized.
+    Arrange: Use `monkeypatch`, `client` parameters.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['status'] == 'failed'`; `result['error']['code'] == 'mcp_unavailable'`;
+            `'secret' not in str(result)`.
     """
 
     async def fail(session: object) -> list[BaseTool]:
@@ -134,9 +137,9 @@ async def test_check_times_out_and_closes_session(
 ) -> None:
     """Verify check times out and closes session.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for check times out and closes session.
+    Arrange: Use `monkeypatch`, `client` parameters.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['error']['code'] == 'mcp_timeout'`; `client.exits == 1`.
     """
 
     async def hang(session: object) -> list[BaseTool]:
@@ -154,10 +157,10 @@ async def test_caller_policy_failures_are_not_relabelled_as_disconnects(
 ) -> None:
     """Verify caller policy failures are not relabelled as disconnects.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for caller policy failures are not relabelled as
-            disconnects."""
+    Arrange: Use `monkeypatch`, `client` parameters.
+    Act: Call `monkeypatch.setattr`.
+    Assert: Check `raises SafetyError`; `client.exits == 1`.
+    """
 
     async def load(session: object) -> list[BaseTool]:
         return [tool("browser_navigate", []), tool("browser_snapshot", [])]
@@ -180,9 +183,10 @@ async def test_caller_policy_failures_are_not_relabelled_as_disconnects(
 async def test_tool_failures_have_safe_codes(failure: Exception, code: str) -> None:
     """Verify tool failures have safe codes.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for tool failures have safe codes.
+    Arrange: Use `failure`, `code` parameters; prepare `session`.
+    Act: Call `session.call` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`; `caught.value.code == code`; `'secret' not in
+            str(caught.value)`.
     """
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", [], failure=failure)},
@@ -197,9 +201,9 @@ async def test_tool_failures_have_safe_codes(failure: Exception, code: str) -> N
 async def test_cancelled_call_propagates_cancellation() -> None:
     """Verify cancelled call propagates cancellation.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancelled call propagates cancellation.
+    Arrange: prepare `fake`, `session`.
+    Act: Call `session.call` under `pytest.raises(asyncio.CancelledError)`.
+    Assert: Check `raises asyncio.CancelledError`.
     """
 
     async def cancelled(**kwargs: Any) -> str:
@@ -229,10 +233,11 @@ async def test_browser_failure_causes_are_preserved_without_private_payloads(
 ) -> None:
     """Verify browser failure causes are preserved without private payloads.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for browser failure causes are preserved without private
-            payloads."""
+    Arrange: Use `message`, `code` parameters; prepare `session`.
+    Act: Call `session.call` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`; `caught.value.code == code`; `'private' not in
+            str(caught.value)`; `'secret' not in str(caught.value)`.
+    """
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", [], failure=ToolException(message))},
         {"snapshot": "browser_snapshot"},
@@ -249,10 +254,10 @@ async def test_missing_tools_inside_transport_exception_group_keeps_capability_e
 ) -> None:
     """Verify missing tools inside transport exception group keeps capability error.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for missing tools inside transport exception group keeps
-            capability error."""
+    Arrange: Use `monkeypatch`, `client` parameters.
+    Act: Await `mcp_client.check_connection` to obtain `result`.
+    Assert: Check `result['error']['code'] == 'missing_browser_tools'`.
+    """
 
     async def load(session: object) -> list[BaseTool]:
         raise ExceptionGroup(

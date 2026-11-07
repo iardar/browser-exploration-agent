@@ -35,9 +35,10 @@ def isolate_cli_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_check_does_not_require_or_construct_a_model(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify check does not require or construct a model.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for check does not require or construct a model.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `json.loads(response.stdout)['status'] == 'connected'`;
+            `settings.mcp_url == 'http://127.0.0.1:8931/mcp'`.
     """
 
     async def connected(settings: Settings) -> dict[str, Any]:
@@ -57,9 +58,10 @@ def test_check_does_not_require_or_construct_a_model(monkeypatch: pytest.MonkeyP
 def test_check_failure_exits_nonzero_with_diagnostics(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify check failure exits nonzero with diagnostics.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for check failure exits nonzero with diagnostics.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 1`; `json.loads(response.stdout)['error']['code'] ==
+            'mcp_unavailable'`.
     """
 
     async def unavailable(settings: Settings) -> dict[str, Any]:
@@ -76,9 +78,10 @@ def test_invalid_configuration_never_echoes_rejected_secret(
 ) -> None:
     """Verify invalid configuration never echoes rejected secret.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid configuration never echoes rejected secret.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 2`; `'invalid_configuration' in response.output`;
+            `'private-password' not in response.output`.
     """
     monkeypatch.setenv("PLAYWRIGHT_MCP_URL", "http://user:private-password@localhost:8931/mcp")
     response = CliRunner().invoke(cli.app, ["check"])
@@ -92,9 +95,10 @@ def test_run_executes_real_graph_and_outputs_report_path(
 ) -> None:
     """Verify run executes real graph and outputs report path.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for run executes real graph and outputs report path.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `connection`, `behavior`, `model`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `result.status == 'completed'`; `result.objective ==
+            'MOCK: Explore Help'`; `connection.entries == connection.exits == 1`.
     """
     connection = FakeConnection()
     behavior = VerifiedBehavior(
@@ -150,10 +154,12 @@ def test_run_executes_real_graph_and_outputs_report_path(
 def test_run_with_missing_safety_boundary_persists_blocked_result(tmp_path: Path) -> None:
     """Verify run with missing safety boundary persists blocked result.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for run with missing safety boundary persists blocked
-            result."""
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 1`; `output['status'] == 'blocked'`;
+            `output['verified_behaviors'] == output['findings'] == output['unresolved_questions'] ==
+            []`; `Path(output['result']).is_file()`.
+    """
     response = CliRunner().invoke(
         cli.app,
         [
@@ -181,10 +187,12 @@ def test_completed_run_displays_policy_rejection_and_unresolved_goal(
 ) -> None:
     """Verify completed run displays policy rejection and unresolved goal.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for completed run displays policy rejection and unresolved
-            goal."""
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `limitation`, `model`, `connection`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `output['status'] == 'completed' and output['errors']
+            == []`; `output['unresolved_questions'] == saved['unresolved_questions']`;
+            `saved['metrics']['browser_tool_calls'] == 2`.
+    """
     limitation = "The login page could not be inspected because navigation was denied."
     model = FakeModel(
         [
@@ -234,10 +242,12 @@ def test_findings_and_limitations_preserve_details_and_redaction_in_terminal_out
 ) -> None:
     """Verify findings and limitations preserve details and redaction in terminal output.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for findings and limitations preserve details and redaction
-            in terminal output."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `finish` parameters; prepare `finding`, `model`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == (0 if finish else 1)`; `output['status'] == ('completed' if
+            finish else 'model_limit')`; `output['findings'] == saved['findings']`;
+            `'private-question-value' not in response.stdout`.
+    """
     finding = BrowserFinding(
         id="finding-1",
         title="Potential Help content issue",
@@ -305,9 +315,10 @@ def test_findings_and_limitations_preserve_details_and_redaction_in_terminal_out
 def test_invalid_task_is_rejected_before_browser_execution(tmp_path: Path) -> None:
     """Verify invalid task is rejected before browser execution.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid task is rejected before browser execution.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 2`; `'invalid_task' in response.output`; `not
+            list(tmp_path.iterdir())`.
     """
     response = CliRunner().invoke(
         cli.app,
@@ -329,9 +340,10 @@ def test_invalid_task_is_rejected_before_browser_execution(tmp_path: Path) -> No
 def test_schema_export_needs_no_credentials(tmp_path: Path) -> None:
     """Verify schema export needs no credentials.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for schema export needs no credentials.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `schema['properties']['schema_version']['const'] ==
+            '1.0'`.
     """
     response = CliRunner().invoke(cli.app, ["schemas", "--output-dir", str(tmp_path)])
     assert response.exit_code == 0

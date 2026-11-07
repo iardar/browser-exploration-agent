@@ -42,9 +42,10 @@ def fingerprints(directory: Path) -> dict[str, str]:
 def test_corpus_contains_reviewed_positive_and_negative_labels() -> None:
     """Verify corpus contains reviewed positive and negative labels.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for corpus contains reviewed positive and negative labels.
+    Arrange: Use the values passed to `len`.
+    Act: Evaluate `len` in the assertion.
+    Assert: Check `len(SCENARIOS) == 30`; `sum((item['expected_pass'] for item in SCENARIOS)) == 7`;
+            `len({item['id'] for item in SCENARIOS}) == len(SCENARIOS)`.
     """
     assert len(SCENARIOS) == 30
     assert sum(item["expected_pass"] for item in SCENARIOS) == 7
@@ -57,9 +58,10 @@ async def test_challenge_outcome_and_named_check_are_correct(
 ) -> None:
     """Verify challenge outcome and named check are correct.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for challenge outcome and named check are correct.
+    Arrange: Use `tmp_path`, `scenario` parameters.
+    Act: Await `control` to obtain `source`.
+    Assert: Check `report['passed'] is scenario['expected_pass']`; `fingerprints(source) == before`;
+            `scenario['expected_check'] in report['failed_checks']`.
     """
     source = await control(tmp_path / "control", scenario["base_case"])
     before = fingerprints(source)
@@ -76,10 +78,12 @@ async def test_benchmark_measures_rejection_without_rejecting_valid_controls(
 ) -> None:
     """Verify benchmark measures rejection without rejecting valid controls.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for benchmark measures rejection without rejecting valid
-            controls."""
+    Arrange: Use `tmp_path` parameter; prepare `controls`, `output`.
+    Act: Call `run_benchmark` to obtain `report`.
+    Assert: Check `report['scenario_count'] == 30`; `report['valid_accepted'] ==
+            report['positive_controls'] == 7`; `report['corruptions_rejected'] ==
+            report['negative_challenges'] == 23`; `output.stat().st_mode & 511 == 448`.
+    """
     controls = {
         case_id: await control(tmp_path / "controls", case_id)
         for case_id in ("NET-001", "NET-002", "NET-003")
@@ -101,9 +105,10 @@ async def test_benchmark_measures_rejection_without_rejecting_valid_controls(
 async def test_existing_control_and_output_cannot_be_overwritten(tmp_path: Path) -> None:
     """Verify existing control and output cannot be overwritten.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for existing control and output cannot be overwritten.
+    Arrange: Use `tmp_path` parameter; prepare `source`, `before`.
+    Act: Call `copy_variant` under `pytest.raises(ValueError)`.
+    Assert: Check `raises ValueError`; `(existing / 'sentinel').read_text() == 'keep'`;
+            `fingerprints(source) == before`.
     """
     source = await control(tmp_path / "control", "NET-003")
     before = fingerprints(source)
@@ -121,9 +126,9 @@ async def test_existing_control_and_output_cannot_be_overwritten(tmp_path: Path)
 def test_invalid_control_cannot_generate_a_passing_benchmark(tmp_path: Path) -> None:
     """Verify invalid control cannot generate a passing benchmark.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid control cannot generate a passing benchmark.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `run_benchmark` under `pytest.raises(ValueError)`.
+    Assert: Check `raises ValueError`.
     """
     with pytest.raises(ValueError, match="control must pass"):
         run_benchmark({"NET-001": tmp_path / "missing"}, tmp_path / "output")
@@ -134,9 +139,10 @@ async def test_benchmark_cli_is_offline_and_emits_json(
 ) -> None:
     """Verify benchmark cli is offline and emits json.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for benchmark cli is offline and emits json.
+    Arrange: Use `tmp_path`, `monkeypatch`, `capsys` parameters; prepare `source`.
+    Act: Call `main` under `pytest.raises(SystemExit)`.
+    Assert: Check `raises SystemExit`; `caught.value.code == 0`; `report['scenario_count'] == 2`;
+            `report['corruption_rejection_recall'] is None`.
     """
     source = await control(tmp_path / "control", "NET-001")
     monkeypatch.setattr(
@@ -163,10 +169,12 @@ async def test_provider_unavailability_is_visible_and_separate_from_behavior(
 ) -> None:
     """Verify provider unavailability is visible and separate from behavior.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider unavailability is visible and separate from
-            behavior."""
+    Arrange: Use `tmp_path` parameter; prepare `model`.
+    Act: Await `run_network_replay` to obtain `_, directory`.
+    Assert: Check `report['passed'] is False and report['verdict'] == 'fail'`;
+            `report['failure_category'] == 'infrastructure'`; `'llm_api_error' in
+            report['run_error_codes']`; `'capture_recall' not in report`.
+    """
     model = FakeModel([ModelError("llm_api_error", "Provider unavailable")])
     _, directory = await run_network_replay(tmp_path, "NET-001", model)
     report = grade_run("NET-001", directory)
@@ -179,9 +187,9 @@ async def test_provider_unavailability_is_visible_and_separate_from_behavior(
 async def test_summary_can_omit_redacted_query_values(tmp_path: Path) -> None:
     """Verify summary can omit redacted query values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for summary can omit redacted query values.
+    Arrange: Use `tmp_path` parameter.
+    Act: Await `control` to obtain `source`.
+    Assert: Check `grade_run('NET-001', source)['passed'] is True`.
     """
     source = await control(tmp_path, "NET-001")
     result = json.loads((source / "result.json").read_text())
@@ -195,10 +203,12 @@ async def test_summary_can_omit_redacted_query_values(tmp_path: Path) -> None:
 async def test_challenge_copies_do_not_pollute_execution_quality_statistics(tmp_path: Path) -> None:
     """Verify challenge copies do not pollute execution quality statistics.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for challenge copies do not pollute execution quality
-            statistics."""
+    Arrange: Use `tmp_path` parameter.
+    Act: Await `control` to obtain `source`.
+    Assert: Check `audit['run_count'] == 1`; `audit['excluded_evaluation_results'] ==
+            report['scenario_count']`; `str(tmp_path / 'derived') in
+            audit['excluded_evaluation_directories']`; `not audit['incomplete_runs']`.
+    """
     source = await control(tmp_path / "original", "NET-003")
     report = run_benchmark({"NET-003": source}, tmp_path / "derived")
     audit = audit_runs(tmp_path)
@@ -211,9 +221,9 @@ async def test_challenge_copies_do_not_pollute_execution_quality_statistics(tmp_
 async def test_unknown_manifest_does_not_hide_original_execution(tmp_path: Path) -> None:
     """Verify unknown manifest does not hide original execution.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unknown manifest does not hide original execution.
+    Arrange: Use `tmp_path` parameter.
+    Act: Await `control` to obtain `source`.
+    Assert: Check `audit['run_count'] == 1`; `audit['excluded_evaluation_results'] == 0`.
     """
     source = await control(tmp_path / "original", "NET-001")
     (source / "evaluation_manifest.json").write_text('{"report_type": "unknown"}')

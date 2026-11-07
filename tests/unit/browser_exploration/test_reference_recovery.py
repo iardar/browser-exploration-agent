@@ -45,10 +45,10 @@ def test_reference_wrappers_authorize_only_the_exact_observed_control(
 ) -> None:
     """Verify reference wrappers authorize only the exact observed control.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for reference wrappers authorize only the exact observed
-            control."""
+    Arrange: Use `tmp_path`, `reference` parameters.
+    Act: Call `SafetyPolicy` to obtain `policy`.
+    Assert: Check `name == 'browser_type'`; `args['target'] == 'e43'`.
+    """
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)
     name, args = policy.authorize(
@@ -66,10 +66,10 @@ def test_selectors_and_unobserved_reference_wrappers_remain_rejected(
 ) -> None:
     """Verify selectors and unobserved reference wrappers remain rejected.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for selectors and unobserved reference wrappers remain
-            rejected."""
+    Arrange: Use `tmp_path`, `reference` parameters; prepare `policy`.
+    Act: Call `policy.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
+    """
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)
     with pytest.raises(SafetyError, match='bare string "e43"'):
@@ -79,10 +79,10 @@ def test_selectors_and_unobserved_reference_wrappers_remain_rejected(
 def test_reference_normalization_does_not_bypass_sensitive_field_policy(tmp_path: Path) -> None:
     """Verify reference normalization does not bypass sensitive field policy.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for reference normalization does not bypass sensitive field
-            policy."""
+    Arrange: Use `tmp_path` parameter; prepare `policy`.
+    Act: Call `policy.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
+    """
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE.replace('"Գտնել"', '"Password"'))
     with pytest.raises(SafetyError, match="sensitive"):
@@ -94,10 +94,11 @@ async def test_rejected_selector_recovers_and_results_are_inspected_before_compl
 ) -> None:
     """Verify rejected selector recovers and results are inspected before completion.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for rejected selector recovers and results are inspected
-            before completion."""
+    Arrange: Use `tmp_path` parameter; prepare `session`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `result.metrics.llm_calls == 4`;
+            `result.metrics.browser_tool_calls == 5`; `'e43' in events[1]['reason']`.
+    """
     session = FakeSession(
         [SEARCH_PAGE, SEARCH_PAGE, RESULTS_LINK, RESULTS_PAGE, "Screenshot of full page captured"]
     )
@@ -164,9 +165,9 @@ async def test_rejected_selector_recovers_and_results_are_inspected_before_compl
 def test_form_filling_uses_the_same_reference_normalization(tmp_path: Path) -> None:
     """Verify form filling uses the same reference normalization.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for form filling uses the same reference normalization.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `SafetyPolicy` to obtain `policy`.
+    Assert: Check `args['fields'][0]['target'] == 'e43'`.
     """
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)

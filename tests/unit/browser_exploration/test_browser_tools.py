@@ -28,10 +28,11 @@ def fake_tool(name: str, properties: dict[str, Any] | None = None) -> BaseTool:
 def test_dynamic_discovery_only_exposes_known_compatible_browser_tools() -> None:
     """Verify dynamic discovery only exposes known compatible browser tools.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for dynamic discovery only exposes known compatible browser
-            tools."""
+    Arrange: prepare `tools`.
+    Act: Call `discovered_tools` to obtain `selected, capabilities`.
+    Assert: Check `set(selected) equals values 'browser_navigate', 'browser_snapshot',
+            'browser_click'`; `capabilities['click'] == 'browser_click'`.
+    """
     tools = [
         fake_tool("browser_navigate", {"url": {"type": "string"}}),
         fake_tool("browser_snapshot"),
@@ -56,9 +57,9 @@ def test_dynamic_discovery_only_exposes_known_compatible_browser_tools() -> None
 def test_incompatible_required_schema_fails_closed() -> None:
     """Verify incompatible required schema fails closed.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for incompatible required schema fails closed.
+    Arrange: Start with `fake_tool('browser_snapshot')`.
+    Act: Call `discovered_tools` under `pytest.raises(MCPError)`.
+    Assert: Check `raises MCPError`.
     """
     with pytest.raises(MCPError, match="navigate"):
         discovered_tools(
@@ -76,10 +77,11 @@ def test_incompatible_required_schema_fails_closed() -> None:
 def test_supported_alias_and_agent_catalog_hide_filesystem_arguments() -> None:
     """Verify supported alias and agent catalog hide filesystem arguments.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for supported alias and agent catalog hide filesystem
-            arguments."""
+    Arrange: Start with `discovered_tools()`.
+    Act: Call `discovered_tools` to obtain `selected, capabilities`.
+    Assert: Check `capabilities['navigate'] == 'playwright_browser_navigate'`;
+            `specs[1]['arguments']['properties'] == {}`; `'Untrusted' not in str(specs)`.
+    """
     selected, capabilities = discovered_tools(
         [
             fake_tool("playwright_browser_navigate", {"url": {"type": "string"}}),
@@ -95,9 +97,9 @@ def test_supported_alias_and_agent_catalog_hide_filesystem_arguments() -> None:
 def test_pydantic_argument_schemas_are_supported() -> None:
     """Verify pydantic argument schemas are supported.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for pydantic argument schemas are supported.
+    Arrange: Start with `fake_tool('browser_navigate')`.
+    Act: Call `fake_tool` to obtain `tool`.
+    Assert: Check `argument_schema(tool)['properties']['url']['type'] == 'string'`.
     """
 
     class Input(BaseModel):
@@ -111,10 +113,11 @@ def test_pydantic_argument_schemas_are_supported() -> None:
 def test_current_microsoft_screenshot_and_network_schemas_are_discovered() -> None:
     """Verify current microsoft screenshot and network schemas are discovered.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for current microsoft screenshot and network schemas are
-            discovered."""
+    Arrange: Start with `fake_tool('browser_take_screenshot')`.
+    Act: Call `fake_tool` to obtain `screenshot`.
+    Assert: Check `capabilities['screenshot'] == screenshot.name`; `capabilities['network'] ==
+            network.name`; `len(tool_specs(_ConnectedSession(selected, capabilities))) == 4`.
+    """
     screenshot = fake_tool("browser_take_screenshot")
     screenshot.args_schema = {
         "type": "object",
@@ -143,10 +146,11 @@ def test_current_microsoft_screenshot_and_network_schemas_are_discovered() -> No
 def test_typing_catalog_explains_bare_references_without_changing_the_server_schema() -> None:
     """Verify typing catalog explains bare references without changing the server schema.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for typing catalog explains bare references without
-            changing the server schema."""
+    Arrange: Start with `fake_tool()`.
+    Act: Call `fake_tool` to obtain `typing`.
+    Assert: Check `'pass "e43"' in target['description']`; `target['examples'] == ['e43']`;
+            `argument_schema(typing)['properties']['target']['description'] == 'CSS selector'`.
+    """
     typing = fake_tool(
         "browser_type",
         {

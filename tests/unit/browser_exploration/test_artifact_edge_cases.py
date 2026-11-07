@@ -47,10 +47,12 @@ def stored_payload(store: ArtifactStore, observation: BrowserObservation, raw: A
 def test_disabled_raw_retention_never_serializes_an_unserializable_payload(tmp_path: Path) -> None:
     """Verify disabled raw retention never serializes an unserializable payload.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for disabled raw retention never serializes an
-            unserializable payload."""
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `ArtifactStore` to obtain `store`.
+    Assert: Check `reference.retained is False`; `reference.path is None`;
+            `trajectory['evidence_ref'] == reference.id`; `list(store.directory.iterdir()) ==
+            [store.directory / 'trajectory.jsonl']`.
+    """
 
     class UnserializablePayload:
         def __str__(self) -> str:
@@ -69,9 +71,10 @@ def test_disabled_raw_retention_never_serializes_an_unserializable_payload(tmp_p
 def test_legacy_image_data_urls_become_separate_webp_files(tmp_path: Path, wrapped: bool) -> None:
     """Verify legacy image data urls become separate webp files.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for legacy image data urls become separate webp files.
+    Arrange: Use `tmp_path`, `wrapped` parameters; prepare `image_bytes`.
+    Act: Evaluate `json.dumps` in the assertion.
+    Assert: Check `payload equals values 'type', 'path', 'mime_type'`; `(store.directory /
+            payload['path']).read_bytes() == image_bytes`; `encoded not in json.dumps(payload)`.
     """
     image_bytes = b"synthetic screenshot bytes"
     encoded = base64.b64encode(image_bytes).decode()
@@ -112,10 +115,12 @@ def test_invalid_screenshots_are_recorded_as_omitted_without_binary_files(
 ) -> None:
     """Verify invalid screenshots are recorded as omitted without binary files.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid screenshots are recorded as omitted without
-            binary files."""
+    Arrange: Use `tmp_path`, `raw`, `reason` parameters.
+    Act: Call `ArtifactStore` to obtain `store`.
+    Assert: Check `payload == {'type': 'image_omitted', 'reason': reason}`; `[path.suffix for path
+            in (store.directory / 'evidence').iterdir()] == ['.json']`; `len((store.directory /
+            'trajectory.jsonl').read_text().splitlines()) == 1`.
+    """
     store = ArtifactStore(tmp_path, "invalid-image", retain_raw_evidence=True)
     payload = stored_payload(store, observed(), raw)
     assert payload == {"type": "image_omitted", "reason": reason}
@@ -126,9 +131,10 @@ def test_invalid_screenshots_are_recorded_as_omitted_without_binary_files(
 def test_oversized_image_is_rejected_before_binary_decoding(tmp_path: Path) -> None:
     """Verify oversized image is rejected before binary decoding.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for oversized image is rejected before binary decoding.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `ArtifactStore` to obtain `store`.
+    Assert: Check `payload == {'type': 'image_omitted', 'reason': 'image exceeds 32 MiB limit'}`;
+            `len(evidence_files) == 1`; `evidence_files[0].stat().st_size < 200`.
     """
     store = ArtifactStore(tmp_path, "large-image", retain_raw_evidence=True)
     payload = stored_payload(
@@ -157,10 +163,10 @@ def test_nonembedded_image_metadata_is_not_mistaken_for_a_binary_payload(
 ) -> None:
     """Verify nonembedded image metadata is not mistaken for a binary payload.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for nonembedded image metadata is not mistaken for a binary
-            payload."""
+    Arrange: Use `tmp_path`, `raw` parameters.
+    Act: Call `ArtifactStore` to obtain `store`.
+    Assert: Check `payload == raw`; `list((store.directory / 'evidence').glob('*.png')) == []`.
+    """
     store = ArtifactStore(tmp_path, "metadata-image", retain_raw_evidence=True)
     payload = stored_payload(store, observed(), raw)
     assert payload == raw
@@ -170,10 +176,11 @@ def test_nonembedded_image_metadata_is_not_mistaken_for_a_binary_payload(
 def test_nested_pydantic_evidence_extracts_each_image_with_unique_reference(tmp_path: Path) -> None:
     """Verify nested pydantic evidence extracts each image with unique reference.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for nested pydantic evidence extracts each image with
-            unique reference."""
+    Arrange: Use `tmp_path` parameter.
+    Act: Evaluate `stat.S_IMODE` in the assertion.
+    Assert: Check `payload['content'][0]['text'] == 'Visible article'`; `images[0]['path'] !=
+            images[1]['path']`; `[ equals [b'first image', b'second image']`; `all()`.
+    """
 
     class MCPResponse(BaseModel):
         content: list[dict[str, Any]]
@@ -204,10 +211,11 @@ def test_nested_pydantic_evidence_extracts_each_image_with_unique_reference(tmp_
 def test_evidence_directory_symlink_cannot_redirect_retained_data(tmp_path: Path) -> None:
     """Verify evidence directory symlink cannot redirect retained data.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for evidence directory symlink cannot redirect retained
-            data."""
+    Arrange: Use `tmp_path` parameter; prepare `outside`, `store`.
+    Act: Call `store.record` under `pytest.raises(ValueError)`.
+    Assert: Check `raises ValueError`; `list(outside.iterdir()) == []`; `(store.directory /
+            'trajectory.jsonl').read_text() == ''`.
+    """
     outside = tmp_path / "outside"
     outside.mkdir()
     store = ArtifactStore(tmp_path, "symlink-evidence", retain_raw_evidence=True)
@@ -224,10 +232,11 @@ def test_existing_artifact_symlink_does_not_overwrite_an_external_file(
 ) -> None:
     """Verify existing artifact symlink does not overwrite an external file.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for existing artifact symlink does not overwrite an
-            external file."""
+    Arrange: Use `tmp_path`, `filename` parameters.
+    Act: Evaluate `outside.read_text` in the assertion.
+    Assert: Check `raises OSError`; `failure.value.errno == errno.ELOOP`; `outside.read_text() ==
+            'keep this document'`.
+    """
     store = ArtifactStore(tmp_path, "file-symlink")
     outside = tmp_path / "existing-document.txt"
     outside.write_text("keep this document")
@@ -246,10 +255,11 @@ def test_existing_artifact_symlink_does_not_overwrite_an_external_file(
 def test_result_for_another_run_is_rejected_without_creating_reports(tmp_path: Path) -> None:
     """Verify result for another run is rejected without creating reports.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for result for another run is rejected without creating
-            reports."""
+    Arrange: Use `tmp_path` parameter; prepare `store`.
+    Act: Call `store.save_result` under `pytest.raises(ValueError)`.
+    Assert: Check `raises ValueError`; `not (store.directory / 'result.json').exists()`; `not
+            (store.directory / 'metrics.json').exists()`.
+    """
     store = ArtifactStore(tmp_path, "this-run")
     with pytest.raises(ValueError, match="does not match"):
         store.save_result(result("other-run"))
@@ -265,9 +275,9 @@ def test_unsafe_or_oversized_run_ids_do_not_create_directories(
 ) -> None:
     """Verify unsafe or oversized run ids do not create directories.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unsafe or oversized run ids do not create directories.
+    Arrange: Use `tmp_path`, `identifier` parameters.
+    Act: Call `ArtifactStore` under `pytest.raises(ValueError)`.
+    Assert: Check `raises ValueError`; `list(tmp_path.iterdir()) == []`.
     """
     with pytest.raises(ValueError, match="safe filename"):
         ArtifactStore(tmp_path, identifier)
@@ -277,9 +287,10 @@ def test_unsafe_or_oversized_run_ids_do_not_create_directories(
 def test_reopening_a_run_preserves_its_existing_trajectory(tmp_path: Path) -> None:
     """Verify reopening a run preserves its existing trajectory.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for reopening a run preserves its existing trajectory.
+    Arrange: Use `tmp_path` parameter.
+    Act: Call `ArtifactStore` to obtain `first_store`.
+    Assert: Check `[entry['id'] for entry in entries] == ['first', 'second']`;
+            `[entry['evidence_ref'] for entry in entries] == ['evidence-first', 'evidence-second']`.
     """
     first_store = ArtifactStore(tmp_path, "reopened")
     first_store.record(observed("first"), None)
@@ -296,10 +307,11 @@ def test_reopening_a_run_preserves_its_existing_trajectory(tmp_path: Path) -> No
 def test_ipv6_url_redaction_preserves_destination_and_removes_credentials(tmp_path: Path) -> None:
     """Verify ipv6 url redaction preserves destination and removes credentials.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for ipv6 url redaction preserves destination and removes
-            credentials."""
+    Arrange: Use `tmp_path` parameter; prepare `original`.
+    Act: Call `redact_text` to obtain `redacted`.
+    Assert: Check `parsed.hostname == '2001:db8::1'`; `parsed.port == 8443`; `parsed.path ==
+            '/article'`; `'private' not in redacted`.
+    """
     original = "https://user:private@[2001:db8::1]:8443/article?search=private&search=other#private"
     redacted = redact_text(original)
     parsed = urlsplit(redacted)
@@ -316,20 +328,21 @@ def test_ipv6_url_redaction_preserves_destination_and_removes_credentials(tmp_pa
 def test_malformed_urls_are_replaced_without_exposing_their_payload(url: str) -> None:
     """Verify malformed urls are replaced without exposing their payload.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for malformed urls are replaced without exposing their
-            payload."""
+    Arrange: Use `url` parameter.
+    Act: Evaluate `redact_text` in the assertion.
+    Assert: Check `redact_text('Observed ' + url) == 'Observed [REDACTED_URL]'`.
+    """
     assert redact_text("Observed " + url) == "Observed [REDACTED_URL]"
 
 
 def test_nested_model_tuple_and_custom_object_redaction_returns_safe_json_values() -> None:
     """Verify nested model tuple and custom object redaction returns safe json values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for nested model tuple and custom object redaction returns
-            safe json values."""
+    Arrange: Start with `redact()`.
+    Act: Call `redact` to obtain `output`.
+    Assert: Check `'private-session' not in serialized`; `'private-refresh' not in serialized`;
+            `'sensitive_value' not in serialized`; `isinstance(output['diagnostic'], str)`.
+    """
 
     class Metadata(BaseModel):
         session_id: str
@@ -360,9 +373,10 @@ def test_nested_model_tuple_and_custom_object_redaction_returns_safe_json_values
 def test_invalid_provider_usage_poison_only_the_affected_total(invalid: Any) -> None:
     """Verify invalid provider usage poison only the affected total.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid provider usage poison only the affected total.
+    Arrange: Use `invalid` parameter.
+    Act: Evaluate `usage.counts` in the assertion.
+    Assert: Check `usage.calls == 2`; `usage.counts() == {'input_tokens': None, 'output_tokens': 2,
+            'total_tokens': 104}`.
     """
     usage = TokenAccumulator()
     usage.add({"input_tokens": invalid, "output_tokens": 0, "total_tokens": 99})
@@ -374,10 +388,10 @@ def test_invalid_provider_usage_poison_only_the_affected_total(invalid: Any) -> 
 def test_provider_totals_are_not_reconstructed_from_component_values() -> None:
     """Verify provider totals are not reconstructed from component values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider totals are not reconstructed from component
-            values."""
+    Arrange: Start with `TokenAccumulator()`.
+    Act: Evaluate `usage.counts` in the assertion.
+    Assert: Check `usage.counts() == {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 7}`.
+    """
     usage = TokenAccumulator()
     usage.add({"input_tokens": 0, "output_tokens": 0, "total_tokens": 7})
     assert usage.counts() == {"input_tokens": 0, "output_tokens": 0, "total_tokens": 7}
@@ -386,10 +400,11 @@ def test_provider_totals_are_not_reconstructed_from_component_values() -> None:
 def test_token_results_and_separate_runs_do_not_share_mutable_accounting() -> None:
     """Verify token results and separate runs do not share mutable accounting.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for token results and separate runs do not share mutable
-            accounting."""
+    Arrange: Start with `TokenAccumulator()`.
+    Act: Evaluate `first.counts` in the assertion.
+    Assert: Check `first.counts()['total_tokens'] == 3`; `second.calls == 0`; `second.counts() ==
+            {'input_tokens': None, 'output_tokens': None, 'total_tokens': None}`.
+    """
     first = TokenAccumulator()
     second = TokenAccumulator()
     first.add({"input_tokens": 1, "output_tokens": 2, "total_tokens": 3})

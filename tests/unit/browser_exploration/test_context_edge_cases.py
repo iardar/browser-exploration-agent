@@ -12,9 +12,10 @@ from tests.unit.browser_exploration.test_context_builder import observation
 def test_tiny_observation_limits_preserve_authoritative_context(observation_limit: int) -> None:
     """Verify tiny observation limits preserve authoritative context.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for tiny observation limits preserve authoritative context.
+    Arrange: Use `observation_limit` parameter.
+    Act: Call `BrowserExplorationTask` to obtain `task`.
+    Assert: Check `len(selected_observation) == observation_limit`; `item.summary not in
+            selected_observation`; `task.objective in content`; `item.model_dump() == original`.
     """
     task = BrowserExplorationTask(
         url="https://example.com/article",
@@ -40,10 +41,13 @@ def test_tiny_observation_limits_preserve_authoritative_context(observation_limi
 def test_saturated_context_selects_newest_observation_before_lower_priority_sections() -> None:
     """Verify saturated context selects newest observation before lower priority sections.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for saturated context selects newest observation before
-            lower priority sections."""
+    Arrange: Supply `url`, `objective`, `max_context_chars`, `max_recent_observations`,
+             `max_observation_chars` to `BrowserExplorationTask`.
+    Act: Call `BrowserExplorationTask` to obtain `task`.
+    Assert: Check `sum((len(str(message.content)) for message in messages)) ==
+            task.max_context_chars`; `task.objective in content`; `'"allow_mutations": false' in
+            content`; `[item.model_dump() for item in items] == original`.
+    """
     task = BrowserExplorationTask(
         url="https://example.com/article",
         objective="Inspect the article. Do not modify persistent data.",
@@ -79,10 +83,12 @@ def test_saturated_context_selects_newest_observation_before_lower_priority_sect
 def test_reusing_context_builder_does_not_retain_prior_run_information() -> None:
     """Verify reusing context builder does not retain prior run information.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for reusing context builder does not retain prior run
-            information."""
+    Arrange: Start with `ContextBuilder()`.
+    Act: Call `ContextBuilder` to obtain `builder`.
+    Assert: Check `'first application content' in first_content`; `second_task.objective in
+            second_content`; `second_task.url in second_content`; `first_messages[1] is not
+            second_messages[1]`.
+    """
     builder = ContextBuilder()
     first_task = BrowserExplorationTask(
         url="https://first.example.com", objective="Inspect first application"

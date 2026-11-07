@@ -35,10 +35,10 @@ def test_task_and_environment_budgets_accept_inclusive_endpoints(
 ) -> None:
     """Verify task and environment budgets accept inclusive endpoints.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task and environment budgets accept inclusive
-            endpoints."""
+    Arrange: Use `name`, `minimum`, `maximum` parameters.
+    Act: Evaluate `getattr` in the assertion.
+    Assert: Check `getattr(task, name) == getattr(configured, name) == boundary`.
+    """
     for boundary in (minimum, maximum):
         task = BrowserExplorationTask.model_validate({**BASE_TASK, name: boundary})
         configured = Settings.model_validate({name: boundary})
@@ -53,10 +53,10 @@ def test_task_and_environment_budgets_reject_values_just_outside_limits(
 ) -> None:
     """Verify task and environment budgets reject values just outside limits.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task and environment budgets reject values just outside
-            limits."""
+    Arrange: Use `name`, `minimum`, `maximum` parameters.
+    Act: Inspect the `name` fixture's measured fields.
+    Assert: Check `raises ValidationError`.
+    """
     for invalid in (minimum - 1, maximum + 1):
         with pytest.raises(ValidationError):
             BrowserExplorationTask.model_validate({**BASE_TASK, name: invalid})
@@ -70,10 +70,10 @@ def test_task_and_environment_budgets_reject_values_just_outside_limits(
 def test_task_rejects_control_characters_and_browser_ambiguous_backslashes(url: str) -> None:
     """Verify task rejects control characters and browser ambiguous backslashes.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task rejects control characters and browser ambiguous
-            backslashes."""
+    Arrange: Use `url` parameter.
+    Act: Call `BrowserExplorationTask.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
+    """
     with pytest.raises(ValidationError, match="control characters or backslashes"):
         BrowserExplorationTask.model_validate({**BASE_TASK, "url": url})
 
@@ -81,10 +81,10 @@ def test_task_rejects_control_characters_and_browser_ambiguous_backslashes(url: 
 def test_domain_normalization_preserves_order_and_deduplicates_idna_equivalents() -> None:
     """Verify domain normalization preserves order and deduplicates idna equivalents.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for domain normalization preserves order and deduplicates
-            idna equivalents."""
+    Arrange: Start with `BrowserExplorationTask.model_validate()`.
+    Act: Call `BrowserExplorationTask.model_validate` to obtain `task`.
+    Assert: Check `task.allowed_domains == ['xn--bcher-kva.example', 'example.com']`.
+    """
     task = BrowserExplorationTask.model_validate(
         {
             **BASE_TASK,
@@ -102,10 +102,11 @@ def test_domain_normalization_preserves_order_and_deduplicates_idna_equivalents(
 def test_explicit_and_default_ipv6_domains_use_hostnames_without_url_brackets() -> None:
     """Verify explicit and default ipv6 domains use hostnames without url brackets.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for explicit and default ipv6 domains use hostnames without
-            url brackets."""
+    Arrange: prepare `url`.
+    Act: Call `BrowserExplorationTask` to obtain `implicit`.
+    Assert: Check `implicit.allowed_domains == explicit.allowed_domains ==
+            ['2606:4700:4700::1111']`.
+    """
     url = "https://[2606:4700:4700::1111]:443/article"
     implicit = BrowserExplorationTask(url=url, objective="Inspect")
     explicit = BrowserExplorationTask(
@@ -118,10 +119,10 @@ def test_explicit_and_default_ipv6_domains_use_hostnames_without_url_brackets() 
 def test_invalid_idna_domain_encoding_is_a_contract_validation_error(domain: str) -> None:
     """Verify invalid idna domain encoding is a contract validation error.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid idna domain encoding is a contract validation
-            error."""
+    Arrange: Use `domain` parameter.
+    Act: Call `BrowserExplorationTask.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
+    """
     with pytest.raises(ValidationError, match="invalid allowed domain"):
         BrowserExplorationTask.model_validate({**BASE_TASK, "allowed_domains": [domain]})
 
@@ -130,9 +131,9 @@ def test_invalid_idna_domain_encoding_is_a_contract_validation_error(domain: str
 def test_empty_configured_model_is_rejected(model: str) -> None:
     """Verify empty configured model is rejected.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for empty configured model is rejected.
+    Arrange: Use `model` parameter.
+    Act: Call `Settings` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError, match="OPENAI_MODEL must not be empty"):
         Settings(model=model)
@@ -143,9 +144,11 @@ def test_configuration_alias_precedence_and_explicit_override(
 ) -> None:
     """Verify configuration alias precedence and explicit override.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for configuration alias precedence and explicit override.
+    Arrange: Use `monkeypatch` parameter.
+    Act: Call `monkeypatch.setenv`.
+    Assert: Check `Settings().model == 'primary-model'`; `Settings().mcp_url ==
+            'http://localhost:8931/mcp'`; `Settings(model='explicit-model').model ==
+            'explicit-model'`; `Settings().mcp_url == 'http://127.0.0.1:9000/mcp'`.
     """
     monkeypatch.setenv("OPENAI_MODEL", " primary-model ")
     monkeypatch.setenv("BROWSER_MODEL", "fallback-model")
@@ -164,9 +167,9 @@ def test_configuration_alias_precedence_and_explicit_override(
 def test_tool_timeout_rejects_invalid_and_non_finite_values(value: float) -> None:
     """Verify tool timeout rejects invalid and non finite values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for tool timeout rejects invalid and non finite values.
+    Arrange: Use `value` parameter.
+    Act: Call `Settings` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         Settings(tool_timeout_seconds=value)
@@ -175,10 +178,11 @@ def test_tool_timeout_rejects_invalid_and_non_finite_values(value: float) -> Non
 def test_tool_timeout_accepts_fractional_and_maximum_valid_seconds() -> None:
     """Verify tool timeout accepts fractional and maximum valid seconds.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for tool timeout accepts fractional and maximum valid
-            seconds."""
+    Arrange: Use the values passed to `Settings`.
+    Act: Evaluate `Settings` in the assertion.
+    Assert: Check `Settings(tool_timeout_seconds=0.001).tool_timeout_seconds == 0.001`;
+            `Settings(tool_timeout_seconds=3600).tool_timeout_seconds == 3600`.
+    """
     assert Settings(tool_timeout_seconds=0.001).tool_timeout_seconds == 0.001
     assert Settings(tool_timeout_seconds=3600).tool_timeout_seconds == 3600
 
@@ -194,9 +198,9 @@ def test_tool_timeout_accepts_fractional_and_maximum_valid_seconds() -> None:
 def test_context_snippets_reject_missing_meaningful_fields(values: dict[str, str]) -> None:
     """Verify context snippets reject missing meaningful fields.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for context snippets reject missing meaningful fields.
+    Arrange: Use `values` parameter.
+    Act: Call `ContextSnippet.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         ContextSnippet.model_validate(values)
@@ -205,9 +209,9 @@ def test_context_snippets_reject_missing_meaningful_fields(values: dict[str, str
 def test_task_collections_are_isolated_between_instances() -> None:
     """Verify task collections are isolated between instances.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task collections are isolated between instances.
+    Arrange: Start with `BrowserExplorationTask.model_validate(BASE_TASK)`.
+    Act: Call `BrowserExplorationTask.model_validate` to obtain `first`.
+    Assert: Check `second.allowed_domains == ['example.com']`; `second.context_snippets == []`.
     """
     first = BrowserExplorationTask.model_validate(BASE_TASK)
     second = BrowserExplorationTask.model_validate(BASE_TASK)
@@ -220,10 +224,10 @@ def test_task_collections_are_isolated_between_instances() -> None:
 def test_result_collections_and_metrics_are_isolated_between_runs() -> None:
     """Verify result collections and metrics are isolated between runs.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for result collections and metrics are isolated between
-            runs."""
+    Arrange: prepare `values`.
+    Act: Call `BrowserExplorationResult.model_validate` to obtain `first`.
+    Assert: Check `second.unresolved_questions == []`; `second.metrics.llm_calls == 0`.
+    """
     values: dict[str, Any] = {
         "run_id": "one",
         "objective": "Inspect",
@@ -258,9 +262,9 @@ def test_result_collections_and_metrics_are_isolated_between_runs() -> None:
 def test_negative_execution_metrics_are_rejected(field: str) -> None:
     """Verify negative execution metrics are rejected.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for negative execution metrics are rejected.
+    Arrange: Use `field` parameter.
+    Act: Call `ExecutionMetrics.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         ExecutionMetrics.model_validate({field: -1})
@@ -270,9 +274,9 @@ def test_negative_execution_metrics_are_rejected(field: str) -> None:
 def test_finding_confidence_must_be_a_finite_probability(confidence: float) -> None:
     """Verify finding confidence must be a finite probability.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for finding confidence must be a finite probability.
+    Arrange: Use `confidence` parameter.
+    Act: Call `BrowserFinding` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         BrowserFinding(
@@ -289,10 +293,11 @@ def test_finding_confidence_must_be_a_finite_probability(confidence: float) -> N
 def test_observation_uses_a_timezone_aware_default_timestamp_and_independent_arguments() -> None:
     """Verify observation uses a timezone aware default timestamp and independent arguments.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for observation uses a timezone aware default timestamp and
-            independent arguments."""
+    Arrange: Supply `id`, `url`, `action_name`, `summary` to `BrowserObservation`.
+    Act: Evaluate `datetime.now` in the assertion.
+    Assert: Check `second.action_arguments == {}`; `first.timestamp.tzinfo is not None`;
+            `first.timestamp.utcoffset() == datetime.now(UTC).utcoffset()`.
+    """
     first = BrowserObservation(
         id="one", url="https://example.com", action_name="snapshot", summary="one"
     )

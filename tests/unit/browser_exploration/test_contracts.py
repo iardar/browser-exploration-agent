@@ -15,9 +15,11 @@ from browser_exploration.contracts import (
 def test_task_defaults_and_independent_contract() -> None:
     """Verify task defaults and independent contract.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task defaults and independent contract.
+    Arrange: Supply `url`, `objective` to `BrowserExplorationTask`.
+    Act: Call `BrowserExplorationTask` to obtain `task`.
+    Assert: Check `task.allowed_domains == ['example.com']`; `task.objective == 'Inspect page'`;
+            `task.allow_mutations is False`; `task.model_validate_json(task.model_dump_json()) ==
+            task`.
     """
     task = BrowserExplorationTask(url="https://Example.com/page", objective=" Inspect page ")
     assert task.allowed_domains == ["example.com"]
@@ -40,9 +42,9 @@ def test_task_defaults_and_independent_contract() -> None:
 def test_task_rejects_invalid_urls(url: str) -> None:
     """Verify task rejects invalid urls.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task rejects invalid urls.
+    Arrange: Use `url` parameter.
+    Act: Call `BrowserExplorationTask` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         BrowserExplorationTask(url=url, objective="Inspect")
@@ -66,9 +68,9 @@ def test_task_rejects_invalid_urls(url: str) -> None:
 def test_task_validates_limits_and_unknown_fields(changes: dict[str, object]) -> None:
     """Verify task validates limits and unknown fields.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for task validates limits and unknown fields.
+    Arrange: Use `changes` parameter.
+    Act: Call `BrowserExplorationTask.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         BrowserExplorationTask.model_validate(
@@ -79,9 +81,10 @@ def test_task_validates_limits_and_unknown_fields(changes: dict[str, object]) ->
 def test_confirmed_findings_and_behaviors_require_evidence() -> None:
     """Verify confirmed findings and behaviors require evidence.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for confirmed findings and behaviors require evidence.
+    Arrange: prepare `values`.
+    Act: Call `BrowserFinding.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`; `finding.verification_status == 'confirmed'`;
+            `potential.evidence_ids == []`.
     """
     values = {
         "id": "f1",
@@ -104,9 +107,11 @@ def test_confirmed_findings_and_behaviors_require_evidence() -> None:
 def test_result_retains_partial_status_and_unknown_metrics() -> None:
     """Verify result retains partial status and unknown metrics.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for result retains partial status and unknown metrics.
+    Arrange: prepare `now`.
+    Act: Call `BrowserExplorationResult` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.metrics.input_tokens is None`;
+            `result.metrics == ExecutionMetrics()`;
+            `BrowserExplorationResult.model_validate_json(result.model_dump_json()) == result`.
     """
     now = datetime.now(UTC)
     result = BrowserExplorationResult(

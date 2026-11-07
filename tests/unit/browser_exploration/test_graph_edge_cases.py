@@ -30,9 +30,9 @@ from tests.unit.browser_exploration.test_graph import settings, task
 def test_non_content_values_do_not_invent_observation_text(raw: Any) -> None:
     """Verify non content values do not invent observation text.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for non content values do not invent observation text.
+    Arrange: Use `raw` parameter.
+    Act: Evaluate `graph.observation_text` in the assertion.
+    Assert: Check `graph.observation_text(raw) == ''`.
     """
     assert graph.observation_text(raw) == ""
 
@@ -40,10 +40,11 @@ def test_non_content_values_do_not_invent_observation_text(raw: Any) -> None:
 def test_plain_and_nested_text_preserve_order_but_fallback_metadata_is_redacted() -> None:
     """Verify plain and nested text preserve order but fallback metadata is redacted.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for plain and nested text preserve order but fallback
-            metadata is redacted."""
+    Arrange: Start with `graph.observation_text()`.
+    Act: Evaluate `text.splitlines` in the assertion.
+    Assert: Check `text.splitlines()[:2] == ['First', 'Second']`; `json.loads(text.splitlines()[2])
+            == {'token': '[REDACTED]'}`; `'private' not in text`.
+    """
     text = graph.observation_text(
         ["First", {"content": [{"type": "text", "text": "Second"}]}, {"token": "private"}]
     )
@@ -55,10 +56,12 @@ def test_plain_and_nested_text_preserve_order_but_fallback_metadata_is_redacted(
 async def test_context_overflow_after_navigation_stops_before_model_call(tmp_path: Path) -> None:
     """Verify context overflow after navigation stops before model call.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for context overflow after navigation stops before model
-            call."""
+    Arrange: Use `tmp_path` parameter; prepare `redirected`, `session`, `connection`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'blocked'`; `result.errors[-1].code == 'context_limit'`;
+            `result.metrics.browser_tool_calls == result.metrics.successful_browser_tool_calls ==
+            2`; `saved['status'] == 'blocked'`.
+    """
     redirected = "https://example.com/" + "a" * 5_000
     session = FakeSession([snapshot(redirected), snapshot(redirected)])
     connection = FakeConnection(session)
@@ -84,9 +87,11 @@ async def test_exact_wall_clock_boundary_stops_before_the_next_action(
     # Replace only the graph's clock; changing the asyncio clock would hide deadline bugs.
     """Verify exact wall clock boundary stops before the next action.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for exact wall clock boundary stops before the next action.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `clock`, `connection`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'timeout'`; `result.errors[-1].code == 'execution_timeout'`;
+            `result.metrics.duration_seconds == 10.0`; `len(result.evidence) == connection.exits ==
+            1`.
     """
     clock = SimpleNamespace(now=100.0)
     monkeypatch.setattr(graph, "time", SimpleNamespace(monotonic=lambda: clock.now))
@@ -118,10 +123,11 @@ async def test_missing_model_credentials_fail_after_bootstrap_without_provider_c
 ) -> None:
     """Verify missing model credentials fail after bootstrap without provider calls.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for missing model credentials fail after bootstrap without
-            provider calls."""
+    Arrange: Use `tmp_path` parameter; prepare `connection`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'failed'`; `result.errors[-1].code == 'llm_configuration'`;
+            `result.metrics.browser_tool_calls == 2`; `connection.entries == connection.exits == 1`.
+    """
     connection = FakeConnection()
     result = await AutonomousBrowserExplorer(settings(tmp_path), connection=connection).explore(
         task()
@@ -140,10 +146,11 @@ async def test_lazy_model_is_initialized_once_and_reused_across_decisions(
 ) -> None:
     """Verify lazy model is initialized once and reused across decisions.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for lazy model is initialized once and reused across
-            decisions."""
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `connection`, `model`, `constructed`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `len(constructed) == 1`; `len(model.requests) ==
+            result.metrics.llm_calls == 2`; `len(connection.session.calls) == 2`.
+    """
     connection = FakeConnection()
     model = FakeModel(
         [
@@ -175,10 +182,11 @@ async def test_unexpected_dependency_errors_persist_actual_failure_without_secre
 ) -> None:
     """Verify unexpected dependency errors persist actual failure without secrets.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unexpected dependency errors persist actual failure
-            without secrets."""
+    Arrange: Use `tmp_path`, `failure_stage` parameters; prepare `error`, `connection`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'failed'`; `result.errors[-1].code == 'unexpected_error'`;
+            `'RuntimeError' in result.errors[-1].message`; `all()`.
+    """
     error = RuntimeError("authorization: Bearer private-service-credential")
     connection = FakeConnection(
         error=error if failure_stage == "connect" else None,
@@ -210,10 +218,11 @@ async def test_repeated_checks_are_deduplicated_and_findings_can_be_verified_lat
 ) -> None:
     """Verify repeated checks are deduplicated and findings can be verified later.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for repeated checks are deduplicated and findings can be
-            verified later."""
+    Arrange: Use `tmp_path` parameter; prepare `behavior`, `potential`, `confirmed`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `result.verified_behaviors == [behavior]`;
+            `result.findings == [confirmed]`; `result.metrics.llm_calls == 2`.
+    """
     behavior = VerifiedBehavior(description="Heading visible", evidence_ids=["evidence-obs-0002"])
     potential = BrowserFinding(
         id="heading-check",
@@ -266,9 +275,11 @@ async def test_repeated_checks_are_deduplicated_and_findings_can_be_verified_lat
 async def test_unseen_screenshot_pixels_cannot_confirm_model_claims(tmp_path: Path) -> None:
     """Verify unseen screenshot pixels cannot confirm model claims.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unseen screenshot pixels cannot confirm model claims.
+    Arrange: Use `tmp_path` parameter; prepare `session`, `model`.
+    Act: Await `AutonomousBrowserExplorer.explore` to obtain `result`.
+    Assert: Check `result.status == 'completed'`; `result.metrics.successful_browser_tool_calls ==
+            len(result.evidence) == 3`; `result.verified_behaviors == []`; `all(('cGl4ZWxz' not in
+            path.read_text() for path in (tmp_path / result.run_id).iterdir()))`.
     """
     session = FakeSession(
         [snapshot(), snapshot(), [{"type": "image", "data": "cGl4ZWxz", "mimeType": "image/png"}]]

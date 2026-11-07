@@ -20,9 +20,9 @@ from browser_exploration.model import Action, Decision, ModelError, OpenAIDecisi
 def test_decision_requires_exactly_one_action_or_completion(payload: dict[str, Any]) -> None:
     """Verify decision requires exactly one action or completion.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for decision requires exactly one action or completion.
+    Arrange: Use `payload` parameter.
+    Act: Call `Decision.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError, match="Choose one action"):
         Decision.model_validate(payload)
@@ -31,9 +31,9 @@ def test_decision_requires_exactly_one_action_or_completion(payload: dict[str, A
 def test_decision_rejects_unknown_fields_and_large_arguments() -> None:
     """Verify decision rejects unknown fields and large arguments.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for decision rejects unknown fields and large arguments.
+    Arrange: Use the values passed to `pytest.raises`.
+    Act: Call `Decision.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`; `Decision(done=True).action is None`.
     """
     with pytest.raises(ValidationError):
         Decision.model_validate({"done": True, "new_max_steps": 1000})
@@ -59,10 +59,12 @@ def make_adapter(
 async def test_provider_usage_and_tools_are_forwarded_without_model_history_growth() -> None:
     """Verify provider usage and tools are forwarded without model history growth.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider usage and tools are forwarded without model
-            history growth."""
+    Arrange: prepare `raw`, `adapter, invoke, chat`, `messages`, `tools`.
+    Act: Await `adapter.decide` to obtain `response`.
+    Assert: Check `response.usage == {'input_tokens': 123, 'output_tokens': 45, 'total_tokens':
+            168}`; `response.decision.done is True`; `len(messages) == 1`; `'browser_snapshot' in
+            request[1].content`.
+    """
     raw = AIMessage(
         content="",
         usage_metadata={"input_tokens": 123, "output_tokens": 45, "total_tokens": 168},
@@ -88,9 +90,11 @@ async def test_provider_usage_and_tools_are_forwarded_without_model_history_grow
 async def test_validation_failure_preserves_reported_usage() -> None:
     """Verify validation failure preserves reported usage.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for validation failure preserves reported usage.
+    Arrange: prepare `adapter, _, _`.
+    Act: Call `adapter.decide` under `pytest.raises(ModelError)`.
+    Assert: Check `raises ModelError`; `failure.value.code == 'llm_validation_error'`;
+            `failure.value.usage == {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}`;
+            `'secret' not in str(failure.value)`.
     """
     adapter, _, _ = make_adapter(
         {
@@ -112,9 +116,10 @@ async def test_validation_failure_preserves_reported_usage() -> None:
 async def test_provider_api_failures_are_sanitized() -> None:
     """Verify provider api failures are sanitized.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider api failures are sanitized.
+    Arrange: prepare `adapter, _, _`.
+    Act: Call `adapter.decide` under `pytest.raises(ModelError)`.
+    Assert: Check `raises ModelError`; `failure.value.code == 'llm_api_error'`; `'secret' not in
+            str(failure.value)`; `failure.value.usage is None`.
     """
     adapter, _, _ = make_adapter(error=RuntimeError("Authorization: Bearer secret"))
     with pytest.raises(ModelError) as failure:
@@ -139,10 +144,12 @@ async def test_provider_rejection_retains_safe_status_code_and_parameter(
 ) -> None:
     """Verify provider rejection retains safe status code and parameter.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider rejection retains safe status code and
-            parameter."""
+    Arrange: Use `status`, `code`, `parameter`, `wrapped` parameters; prepare `request`, `error`.
+    Act: Call `adapter.decide` under `pytest.raises(ModelError)`.
+    Assert: Check `raises ModelError`; `failure.value.code == 'llm_api_error'`;
+            `failure.value.diagnostics['http_status'] == status`;
+            `failure.value.diagnostics['parameter'] == parameter`.
+    """
     request = httpx.Request(
         "POST",
         "https://api.openai.com/v1/chat/completions",
@@ -174,10 +181,12 @@ async def test_provider_rejection_retains_safe_status_code_and_parameter(
 async def test_wrapped_connection_error_is_diagnosed_without_the_original_message() -> None:
     """Verify wrapped connection error is diagnosed without the original message.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for wrapped connection error is diagnosed without the
-            original message."""
+    Arrange: prepare `wrapper`, `adapter, _, _`.
+    Act: Call `adapter.decide` under `pytest.raises(ModelError)`.
+    Assert: Check `raises ModelError`; `failure.value.diagnostics['kind'] ==
+            'provider_connection_error'`; `'Cannot reach' in str(failure.value)`; `'private-' not in
+            str(failure.value)`.
+    """
     wrapper = RuntimeError("private-wrapper-message")
     wrapper.__cause__ = APIConnectionError(
         message="private-provider-message",
@@ -194,9 +203,9 @@ async def test_wrapped_connection_error_is_diagnosed_without_the_original_messag
 async def test_unmeasurable_usage_is_none() -> None:
     """Verify unmeasurable usage is none.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unmeasurable usage is none.
+    Arrange: prepare `adapter, _, _`.
+    Act: Await `adapter.decide` to obtain `result`.
+    Assert: Check `result.usage is None`.
     """
     adapter, _, _ = make_adapter({"raw": AIMessage(content=""), "parsed": Decision(done=True)})
     result = await adapter.decide([], [])
@@ -206,9 +215,9 @@ async def test_unmeasurable_usage_is_none() -> None:
 async def test_legacy_provider_token_usage_is_supported() -> None:
     """Verify legacy provider token usage is supported.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for legacy provider token usage is supported.
+    Arrange: prepare `adapter, _, _`.
+    Act: Await `adapter.decide` to obtain `result`.
+    Assert: Check `result.usage == {'input_tokens': 9, 'output_tokens': 2, 'total_tokens': 11}`.
     """
     adapter, _, _ = make_adapter(
         {
@@ -232,9 +241,9 @@ async def test_legacy_provider_token_usage_is_supported() -> None:
 async def test_cancellation_propagates_to_the_run_owner() -> None:
     """Verify cancellation propagates to the run owner.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for cancellation propagates to the run owner.
+    Arrange: prepare `adapter, _, _`.
+    Act: Call `adapter.decide` under `pytest.raises(asyncio.CancelledError)`.
+    Assert: Check `raises asyncio.CancelledError`.
     """
     adapter, _, _ = make_adapter(error=asyncio.CancelledError())
     with pytest.raises(asyncio.CancelledError):
@@ -244,9 +253,9 @@ async def test_cancellation_propagates_to_the_run_owner() -> None:
 async def test_oversized_tool_catalog_fails_before_provider_request() -> None:
     """Verify oversized tool catalog fails before provider request.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for oversized tool catalog fails before provider request.
+    Arrange: prepare `adapter, invoke, _`.
+    Act: Call `adapter.decide` under `pytest.raises(ModelError)`.
+    Assert: Check `raises ModelError`.
     """
     adapter, invoke, _ = make_adapter()
     with pytest.raises(ModelError, match="schemas exceed"):
@@ -257,9 +266,10 @@ async def test_oversized_tool_catalog_fails_before_provider_request() -> None:
 def test_constructor_configuration_errors_are_sanitized() -> None:
     """Verify constructor configuration errors are sanitized.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for constructor configuration errors are sanitized.
+    Arrange: Use the values passed to `patch`.
+    Act: Evaluate `str` in the assertion.
+    Assert: Check `failure.value.code == 'llm_configuration_error'`; `'secret' not in
+            str(failure.value)`; `failure.value.__suppress_context__ is True`; `raises ModelError`.
     """
     with patch(
         "browser_exploration.model.ChatOpenAI",

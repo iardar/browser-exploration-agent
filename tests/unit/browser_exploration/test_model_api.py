@@ -40,9 +40,10 @@ from tests.unit.browser_exploration.fakes import FakeConnection, FakeModel
 def test_model_defaults_to_the_expected_api_without_renaming_it(model: str, api: str) -> None:
     """Verify model defaults to the expected api without renaming it.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model defaults to the expected api without renaming it.
+    Arrange: Use `model`, `api` parameters.
+    Act: Call `Settings` to obtain `settings`.
+    Assert: Check `settings.model_api == 'auto'`; `settings.effective_model_api == api`;
+            `settings.model == model`.
     """
     settings = Settings(model=model)
     assert settings.model_api == "auto"
@@ -54,9 +55,9 @@ def test_model_defaults_to_the_expected_api_without_renaming_it(model: str, api:
 def test_explicit_api_overrides_auto_selection(api: str) -> None:
     """Verify explicit api overrides auto selection.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for explicit api overrides auto selection.
+    Arrange: Use `api` parameter.
+    Act: Build settings with the explicit API and inspect the selected API.
+    Assert: Check `settings.effective_model_api == api`.
     """
     settings = Settings.model_validate({"model": "gpt-5.6-sol", "model_api": api})
     assert settings.effective_model_api == api
@@ -68,9 +69,10 @@ def test_model_check_uses_environment_or_cli_api(
 ) -> None:
     """Verify model check uses environment or cli api.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model check uses environment or cli api.
+    Arrange: Use `monkeypatch`, `override` parameters; prepare `selected`, `arguments`.
+    Act: Call `CliRunner.invoke` to obtain `result`.
+    Assert: Check `result.exit_code == 0`; `selected[0].effective_model_api == expected`;
+            `json.loads(result.stdout)['model_api'] == expected`.
     """
     selected: list[Settings] = []
 
@@ -93,9 +95,10 @@ def test_model_check_uses_environment_or_cli_api(
 def test_invalid_api_does_not_leak_rejected_values() -> None:
     """Verify invalid api does not leak rejected values.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid api does not leak rejected values.
+    Arrange: Start with `CliRunner().invoke()`.
+    Act: Call `CliRunner.invoke` to obtain `result`.
+    Assert: Check `result.exit_code == 2`; `'private-value' not in result.output`;
+            `json.loads(result.stderr)['fields'] == ['model_api']`.
     """
     result = CliRunner().invoke(cli.app, ["check-model", "--model-api", "private-value"])
     assert result.exit_code == 2
@@ -108,9 +111,10 @@ def test_run_reports_and_persists_the_explicit_api(
 ) -> None:
     """Verify run reports and persists the explicit api.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for run reports and persists the explicit api.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters.
+    Act: Call `CliRunner.invoke` to obtain `result`.
+    Assert: Check `result.exit_code == 0`; `data['model_api'] == 'responses'`; `config['model_api']
+            == 'responses'`; `config['configured_model'] == 'gpt-5.6-sol'`.
     """
 
     class CapturingExplorer:
@@ -154,10 +158,12 @@ async def test_provider_rejection_records_api_and_never_retries_or_switches_mode
 ) -> None:
     """Verify provider rejection records api and never retries or switches model.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for provider rejection records api and never retries or
-            switches model."""
+    Arrange: Use `api`, `monkeypatch` parameters; prepare `captured`.
+    Act: Send one provider request through the adapter configured for the selected API.
+    Assert: Check `len(captured) == 1`; `path == ('/v1/responses' if api == 'responses' else
+            '/v1/chat/completions')`; `payload['model'] == 'gpt-5.6-sol'`; `'--model-api responses'
+            in str(failure.value)`.
+    """
     captured: list[tuple[str, dict[str, Any]]] = []
 
     async def reject(request: httpx.Request) -> httpx.Response:

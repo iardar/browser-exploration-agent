@@ -63,9 +63,11 @@ class FakePortal:
 def test_junit_retains_actual_outcomes_and_durations(report: rp.Report) -> None:
     """Verify junit retains actual outcomes and durations.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for junit retains actual outcomes and durations.
+    Arrange: Use `report` parameter.
+    Act: Inspect the `report` fixture's measured fields.
+    Assert: Check `report.counts == {'total': 4, 'passed': 1, 'failed': 2, 'skipped': 1}`;
+            `report.status == 'FAILED'`; `report.end - report.start == 2500`;
+            `report.cases[3].detail == 'Opt in required'`.
     """
     assert report.counts == {"total": 4, "passed": 1, "failed": 2, "skipped": 1}
     assert report.status == "FAILED"
@@ -88,9 +90,9 @@ def test_junit_retains_actual_outcomes_and_durations(report: rp.Report) -> None:
 def test_bad_junit_is_rejected_before_publication(tmp_path: Path, contents: str) -> None:
     """Verify bad junit is rejected before publication.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for bad junit is rejected before publication.
+    Arrange: Use `tmp_path`, `contents` parameters; prepare `path`.
+    Act: Call `rp.read_junit` under `pytest.raises(rp.ReportingError)`.
+    Assert: Check `raises rp.ReportingError`.
     """
     path = tmp_path / "junit.xml"
     path.write_text(contents)
@@ -103,10 +105,11 @@ def test_environment_overrides_ignored_file_and_project_defaults(
 ) -> None:
     """Verify environment overrides ignored file and project defaults.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for environment overrides ignored file and project
-            defaults."""
+    Arrange: Use `tmp_path`, `monkeypatch` parameters.
+    Act: Call `rp.Settings.load` to obtain `settings`.
+    Assert: Check `settings.endpoint == 'http://override:8080'`; `settings.project == 'local'`;
+            `settings.api_key == KEY`; `KEY not in repr(settings)`.
+    """
     (tmp_path / "pyproject.toml").write_text(
         '[tool.pytest.ini_options]\nrp_endpoint="http://default:8080"\nrp_project="default"\n'
     )
@@ -128,9 +131,11 @@ def test_effective_pytest_configuration_and_cli_are_honored(
 ) -> None:
     """Verify effective pytest configuration and cli are honored.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for effective pytest configuration and cli are honored.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `options`.
+    Act: Call `rp.Settings.load` to obtain `settings`.
+    Assert: Check `settings.endpoint == 'http://cli:8080'`; `settings.project == 'selected_project'
+            and settings.launch == 'Selected launch'`; `settings.attributes == ('suite:selected',)`;
+            `rp.Settings.load(tmp_path, options=options).endpoint == 'http://environment:8080'`.
     """
     (tmp_path / ".env.reportportal").write_text(
         f"RP_API_KEY={KEY}\nRP_ENDPOINT=http://stale-file:8080\n"
@@ -168,9 +173,9 @@ def test_unsafe_endpoint_is_rejected_without_echoing_it(
 ) -> None:
     """Verify unsafe endpoint is rejected without echoing it.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unsafe endpoint is rejected without echoing it.
+    Arrange: Use `tmp_path`, `monkeypatch`, `endpoint` parameters.
+    Act: Call `rp.Settings.load` under `pytest.raises(rp.ReportingError)`.
+    Assert: Check `raises rp.ReportingError`; `'secret' not in str(error.value)`.
     """
     (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
     monkeypatch.setenv("RP_ENDPOINT", endpoint)
@@ -182,9 +187,11 @@ def test_unsafe_endpoint_is_rejected_without_echoing_it(
 def test_complete_upload_verifies_remote_counts_and_redacts_key(report: rp.Report) -> None:
     """Verify complete upload verifies remote counts and redacts key.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for complete upload verifies remote counts and redacts key.
+    Arrange: Use `report` parameter.
+    Act: Evaluate `json.loads` in the assertion.
+    Assert: Check `receipt['verified'] is True`; `receipt['counts'] == report.counts`;
+            `receipt['url'] == 'http://reportportal.example:8080/ui/#system_a/launches/all/42'`;
+            `portal.finished and portal.active_item is None`.
     """
     handler = FakePortal(report)
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -207,9 +214,10 @@ def test_complete_upload_verifies_remote_counts_and_redacts_key(report: rp.Repor
 def test_pytest_nonzero_exit_cannot_produce_a_passing_launch(report: rp.Report) -> None:
     """Verify pytest nonzero exit cannot produce a passing launch.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for pytest nonzero exit cannot produce a passing launch.
+    Arrange: Use `report` parameter.
+    Act: Evaluate `json.loads` in the assertion.
+    Assert: Check `receipt['status'] == 'FAILED'`; `receipt['counts']['failed'] == 0`;
+            `json.loads(handler.requests[-2].content)['status'] == 'FAILED'`.
     """
     passing = rp.Report((report.cases[0],), report.start, report.end)
     handler = FakePortal(passing, status="FAILED")
@@ -224,9 +232,9 @@ def test_pytest_nonzero_exit_cannot_produce_a_passing_launch(report: rp.Report) 
 def test_api_rejection_cannot_be_reported_as_success(status: int) -> None:
     """Verify api rejection cannot be reported as success.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for api rejection cannot be reported as success.
+    Arrange: Use `status` parameter.
+    Act: Evaluate `str` in the assertion.
+    Assert: Check `KEY not in str(error.value)`; `raises rp.ReportingError`.
     """
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -241,10 +249,10 @@ def test_api_rejection_cannot_be_reported_as_success(status: int) -> None:
 def test_network_exception_does_not_expose_key_or_request_headers() -> None:
     """Verify network exception does not expose key or request headers.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for network exception does not expose key or request
-            headers."""
+    Arrange: Use the values passed to `httpx.ConnectError`.
+    Act: Evaluate `str` in the assertion.
+    Assert: Check `KEY not in str(error.value)`; `raises rp.ReportingError`.
+    """
 
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request)
@@ -268,10 +276,11 @@ def test_connection_error_explains_cause_without_exposing_secrets(
 ) -> None:
     """Verify connection error explains cause without exposing secrets.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for connection error explains cause without exposing
-            secrets."""
+    Arrange: Use `cause`, `expected` parameters.
+    Act: Evaluate `str` in the assertion.
+    Assert: Check `KEY not in str(error.value) and 'private' not in str(error.value)`; `raises
+            rp.ReportingError`.
+    """
 
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request) from cause
@@ -285,9 +294,9 @@ def test_connection_error_explains_cause_without_exposing_secrets(
 def test_html_login_page_is_not_a_successful_api_response() -> None:
     """Verify html login page is not a successful api response.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for html login page is not a successful api response.
+    Arrange: Use the values passed to `httpx.Client`.
+    Act: Inspect the test's html login page is not a successful api response values.
+    Assert: Check `raises rp.ReportingError`.
     """
     with httpx.Client(
         transport=httpx.MockTransport(lambda _: httpx.Response(200, text="<html/>"))
@@ -299,10 +308,13 @@ def test_html_login_page_is_not_a_successful_api_response() -> None:
 def test_partial_upload_attempts_cleanup_and_retains_launch_uuid(report: rp.Report) -> None:
     """Verify partial upload attempts cleanup and retains launch uuid.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for partial upload attempts cleanup and retains launch
-            uuid."""
+    Arrange: Use `report` parameter.
+    Act: Evaluate `json.loads` in the assertion.
+    Assert: Check `portal.launch_id == 'launch-uuid'`;
+            `json.loads(handler.requests[-2].content)['status'] == 'INTERRUPTED'`;
+            `json.loads(handler.requests[-1].content)['status'] == 'FAILED'`; `raises
+            rp.ReportingError`.
+    """
     handler = FakePortal(report)
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -332,9 +344,9 @@ def test_finished_status_with_wrong_counts_is_not_verified(
 ) -> None:
     """Verify finished status with wrong counts is not verified.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for finished status with wrong counts is not verified.
+    Arrange: Use `report`, `monkeypatch` parameters.
+    Act: Call `FakePortal` to obtain `handler`.
+    Assert: Check `raises rp.ReportingError`.
     """
     handler = FakePortal(report)
     handler.info["statistics"] = {"executions": {"total": 0}}
@@ -353,9 +365,9 @@ def test_async_launch_read_polls_until_status_and_counts_match(
 ) -> None:
     """Verify async launch read polls until status and counts match.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for async launch read polls until status and counts match.
+    Arrange: Use `report`, `monkeypatch` parameters.
+    Act: Evaluate `portal.verify` in the assertion.
+    Assert: Check `calls == 2`; `portal.verify(report.counts, report.status)['verified']`.
     """
     handler = FakePortal(report)
     calls = 0
@@ -382,9 +394,9 @@ def test_async_launch_read_polls_until_status_and_counts_match(
 def test_malformed_remote_counts_cannot_be_verified(report: rp.Report, statistics: Any) -> None:
     """Verify malformed remote counts cannot be verified.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for malformed remote counts cannot be verified.
+    Arrange: Use `report`, `statistics` parameters.
+    Act: Call `FakePortal` to obtain `handler`.
+    Assert: Check `raises rp.ReportingError`.
     """
     handler = FakePortal(report)
     handler.info["statistics"] = statistics
@@ -401,9 +413,10 @@ def test_saved_junit_is_published_without_rerunning_tests(
 ) -> None:
     """Verify saved junit is published without rerunning tests.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for saved junit is published without rerunning tests.
+    Arrange: Use `tmp_path`, `monkeypatch`, `report` parameters; prepare `path`, `handler`.
+    Act: Publish the saved JUnit through `rp.main` using the mocked ReportPortal client.
+    Assert: Check `rp.main(['--junit', str(path)]) == 1`; `receipt['verified'] is True`;
+            `receipt['status'] == 'FAILED'`; `receipt['counts'] == report.counts`.
     """
     path = tmp_path / "junit.xml"
     path.write_text(JUNIT)
@@ -427,10 +440,12 @@ def test_test_process_has_no_reportportal_credentials_and_uses_canonical_config(
 ) -> None:
     """Verify test process has no reportportal credentials and uses canonical config.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for test process has no reportportal credentials and uses
-            canonical config."""
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `calls`.
+    Act: Evaluate `rp.run_pytest` in the assertion.
+    Assert: Check `rp.run_pytest(tmp_path / 'junit.xml', ['-k', 'network']) == 1`; `command[3:5] ==
+            ['-c', str(rp.ROOT / 'pyproject.toml')]`; `command[5:8] == ['tests/unit', '-n',
+            'auto']`; `kwargs['env']['QA_BROWSER_LIVE_MCP'] == '0'`.
+    """
     calls: list[tuple[list[str], dict[str, Any]]] = []
 
     def run(command: list[str], **kwargs: Any) -> SimpleNamespace:
@@ -454,10 +469,10 @@ def test_direct_plugin_reporting_is_rejected_before_unit_execution(
 ) -> None:
     """Verify direct plugin reporting is rejected before unit execution.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for direct plugin reporting is rejected before unit
-            execution."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `from_environment` parameters.
+    Act: Call `rp.run_pytest` under `pytest.raises(rp.ReportingError)`.
+    Assert: Check `raises rp.ReportingError`.
+    """
     monkeypatch.setenv("PYTEST_ADDOPTS", "--reportportal" if from_environment else "")
     with pytest.raises(rp.ReportingError, match="Omit --reportportal"):
         rp.run_pytest(tmp_path / "junit.xml", [] if from_environment else ["--reportportal"])
@@ -471,9 +486,10 @@ def test_check_command_creates_private_receipt_without_a_launch(
 ) -> None:
     """Verify check command creates private receipt without a launch.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for check command creates private receipt without a launch.
+    Arrange: Use `tmp_path`, `monkeypatch`, `report`, `capsys` parameters; prepare `handler`.
+    Act: Run `rp.main` in access-check mode through the mocked ReportPortal client.
+    Assert: Check `rp.main(['--check']) == 0`; `receipt['stage'] == 'access_checked'`;
+            `receipt['verified'] is False`; `KEY not in path.read_text() + capsys.readouterr().out`.
     """
     handler = FakePortal(report)
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -495,10 +511,13 @@ def test_uploader_uses_frozen_controller_settings_without_reloading_defaults(
 ) -> None:
     """Verify uploader uses frozen controller settings without reloading defaults.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for uploader uses frozen controller settings without
-            reloading defaults."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `report` parameters; prepare `handler`.
+    Act: Run `rp.main` with explicit settings and receipt through the mocked client.
+    Assert: Check `rp.main(['--check'], settings=SETTINGS, receipt=receipt) == 0`;
+            `receipt['endpoint'] == SETTINGS.endpoint`; `receipt['project'] == SETTINGS.project`;
+            `receipt['launches_url'] ==
+            'http://reportportal.example:8080/ui/#system_a/launches/all'`.
+    """
     handler = FakePortal(report)
     client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(rp, "ROOT", tmp_path)
@@ -516,10 +535,12 @@ def test_unreachable_preflight_never_runs_pytest_or_claims_a_launch(
 ) -> None:
     """Verify unreachable preflight never runs pytest or claims a launch.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unreachable preflight never runs pytest or claims a
-            launch."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `capsys` parameters.
+    Act: Run `rp.main` against an unreachable preflight endpoint.
+    Assert: Check `rp.main([]) == 2`; `receipt['stage'] == 'preflight' and receipt['verified'] is
+            False`; `receipt['launch_uuid'] is None`; `KEY not in path.read_text() +
+            str(capsys.readouterr())`.
+    """
 
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request)

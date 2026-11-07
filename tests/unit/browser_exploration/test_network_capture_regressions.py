@@ -22,10 +22,11 @@ from tests.unit.browser_exploration.fakes import FakeModel
 def test_summary_preserves_counts_and_failure_order_under_request_permutations(seed: int) -> None:
     """Verify summary preserves counts and failure order under request permutations.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for summary preserves counts and failure order under
-            request permutations."""
+    Arrange: Use `seed` parameter; prepare `outcomes`.
+    Act: Evaluate `summary.startswith` in the assertion.
+    Assert: Check `summary.startswith()`; `shown == expected`; `'Request details omitted: 26.' in
+            summary`; `len(summary) <= 1000`.
+    """
     outcomes = ["200"] * 24 + ["500", "404", "429", "503", "401", "FAILED", None]
     requests = list(enumerate(outcomes))
     random.Random(seed).shuffle(requests)
@@ -56,10 +57,11 @@ def test_summary_preserves_counts_and_failure_order_under_request_permutations(s
 def test_unknown_large_response_stays_bounded_and_does_not_claim_zero_failures() -> None:
     """Verify unknown large response stays bounded and does not claim zero failures.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unknown large response stays bounded and does not claim
-            zero failures."""
+    Arrange: prepare `text`.
+    Act: Call `summarize_network_observation` to obtain `summary`.
+    Assert: Check `len(summary) <= 1000`; `'Network request counts unknown' in summary`; `'HTTP
+            errors: 0' not in summary`; `'[truncated]' in summary`.
+    """
     text = "Unrecognized format password=private-canary\n" + "unknown payload\n" * 2_000
     summary = summarize_network_observation(text, 6_000)
     assert len(summary) <= 1_000
@@ -74,10 +76,11 @@ async def test_real_adapter_payload_contains_summary_while_raw_listing_stays_in_
 ) -> None:
     """Verify real adapter payload contains summary while raw listing stays in evidence.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for real adapter payload contains summary while raw listing
-            stays in evidence."""
+    Arrange: Use `tmp_path` parameter; prepare `raw`, `invoke`, `client`.
+    Act: Await `run_network_replay` to obtain `result, directory`.
+    Assert: Check `grade_run('NET-003', directory)['passed'] is True`; `invoke.await_count == 2`;
+            `'Network requests parsed: 203' in payload`; `result.metrics.total_tokens == 26`.
+    """
     raw = AIMessage(
         content="", usage_metadata={"input_tokens": 10, "output_tokens": 3, "total_tokens": 13}
     )
@@ -150,10 +153,11 @@ async def test_grader_cannot_pass_impossible_or_inconsistent_run_metadata(
 ) -> None:
     """Verify grader cannot pass impossible or inconsistent run metadata.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for grader cannot pass impossible or inconsistent run
-            metadata."""
+    Arrange: Use `valid_capture`, `fault`, `tmp_path` parameters; prepare `result_path`,
+             `trajectory_path`.
+    Act: Call `json.loads` to obtain `result`.
+    Assert: Check `report['passed'] is False`.
+    """
     result_path = valid_capture / "result.json"
     trajectory_path = valid_capture / "trajectory.jsonl"
     result = json.loads(result_path.read_text())
@@ -199,9 +203,9 @@ async def test_grader_cannot_pass_impossible_or_inconsistent_run_metadata(
 def test_grader_rejects_malformed_top_level_result(tmp_path: Path, invalid: Any) -> None:
     """Verify grader rejects malformed top level result.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for grader rejects malformed top level result.
+    Arrange: Use `tmp_path`, `invalid` parameters.
+    Act: Call `(tmp_path / 'result.json').write_text`.
+    Assert: Check `grade_run('NET-001', tmp_path)['verdict'] == 'invalid_artifacts'`.
     """
     (tmp_path / "result.json").write_text(json.dumps(invalid))
     (tmp_path / "run_config.json").write_text("{}")

@@ -45,9 +45,10 @@ from tests.unit.browser_exploration.fakes import FakeConnection, FakeModel
 def test_only_known_models_get_an_explicit_default(model: str, expected: str | None) -> None:
     """Verify only known models get an explicit default.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for only known models get an explicit default.
+    Arrange: Use `model`, `expected` parameters.
+    Act: Call `Settings` to obtain `settings`.
+    Assert: Check `settings.model == model`; `settings.reasoning_effort is None`;
+            `settings.effective_reasoning_effort == expected`.
     """
     settings = Settings(model=model)
     assert settings.model == model
@@ -59,9 +60,9 @@ def test_only_known_models_get_an_explicit_default(model: str, expected: str | N
 def test_explicit_effort_overrides_the_model_default(effort: str) -> None:
     """Verify explicit effort overrides the model default.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for explicit effort overrides the model default.
+    Arrange: Use `effort` parameter.
+    Act: Build settings with the explicit reasoning effort and inspect the effective value.
+    Assert: Check `settings.effective_reasoning_effort == effort`.
     """
     settings = Settings.model_validate({"model": "gpt-5.6-sol", "reasoning_effort": effort})
     assert settings.effective_reasoning_effort == effort
@@ -70,10 +71,11 @@ def test_explicit_effort_overrides_the_model_default(effort: str) -> None:
 def test_invalid_reasoning_configuration_is_rejected_without_leaking_input() -> None:
     """Verify invalid reasoning configuration is rejected without leaking input.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid reasoning configuration is rejected without
-            leaking input."""
+    Arrange: Start with `CliRunner().invoke()`.
+    Act: Call `Settings.model_validate` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`; `result.exit_code == 2`; `'private-invalid-value' not in
+            result.output`; `json.loads(result.stderr)['fields'] == ['reasoning_effort']`.
+    """
     with pytest.raises(ValidationError):
         Settings.model_validate({"reasoning_effort": "unsupported"})
     result = CliRunner().invoke(
@@ -90,9 +92,10 @@ def test_model_check_honors_effort_environment_and_cli(
 ) -> None:
     """Verify model check honors effort environment and cli.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model check honors effort environment and cli.
+    Arrange: Use `monkeypatch`, `override` parameters; prepare `selected`, `arguments`.
+    Act: Call `CliRunner.invoke` to obtain `result`.
+    Assert: Check `result.exit_code == 0`; `selected[0].effective_reasoning_effort == (override or
+            'high')`; `json.loads(result.stdout)['reasoning_effort'] == (override or 'high')`.
     """
     selected: list[Settings] = []
 
@@ -117,9 +120,11 @@ def test_exploration_logs_and_persists_effective_effort(
 ) -> None:
     """Verify exploration logs and persists effective effort.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for exploration logs and persists effective effort.
+    Arrange: Use `tmp_path`, `monkeypatch`, `override` parameters; prepare `arguments`.
+    Act: Call `CliRunner.invoke` to obtain `result`.
+    Assert: Check `result.exit_code == 0`; `data['reasoning_effort'] == (override or 'medium')`;
+            `config['reasoning_effort'] == (override or 'medium')`; `config['configured_model'] ==
+            'gpt-5.6-sol'`.
     """
 
     class CapturingExplorer:
@@ -169,9 +174,10 @@ async def test_actual_sdk_request_contains_the_configured_effort(
 ) -> None:
     """Verify actual sdk request contains the configured effort.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for actual sdk request contains the configured effort.
+    Arrange: Use `model`, `effort`, `expected`, `monkeypatch` parameters; prepare `captured`.
+    Act: Send one SDK request through the adapter and inspect the captured request options.
+    Assert: Check `result.decision.done`; `len(captured) == 1`; `captured[0]['model'] == model`;
+            `captured[0]['reasoning_effort'] == expected`.
     """
     captured: list[dict[str, Any]] = []
 
@@ -268,10 +274,12 @@ async def test_actual_sdk_request_contains_the_configured_effort(
 def test_reasoning_error_is_actionable_without_the_provider_body() -> None:
     """Verify reasoning error is actionable without the provider body.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for reasoning error is actionable without the provider
-            body."""
+    Arrange: Supply `response`, `body` to `APIStatusError`.
+    Act: Call `APIStatusError` to obtain `error`.
+    Assert: Check `sanitized.diagnostics['provider_code'] == 'missing_required_parameter'`;
+            `sanitized.diagnostics['parameter'] == 'reasoning_effort'`; `'check API compatibility'
+            in str(sanitized)`; `'private-provider-body' not in str(sanitized)`.
+    """
     error = APIStatusError(
         "private-provider-body",
         response=httpx2.Response(400, request=httpx2.Request("POST", "https://example.com/")),

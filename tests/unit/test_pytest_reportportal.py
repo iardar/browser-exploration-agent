@@ -34,9 +34,9 @@ def test_inactive_and_worker_processes_load_no_credentials(
 ) -> None:
     """Verify inactive and worker processes load no credentials.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for inactive and worker processes load no credentials.
+    Arrange: Use `tmp_path`, `monkeypatch`, `mode` parameters.
+    Act: Call `make_config` to obtain `config`.
+    Assert: Check `config.option.rp_enabled is False`.
     """
     config = make_config(tmp_path, rp_enabled=mode != "ordinary", **{mode: True})
     if mode == "worker":
@@ -54,10 +54,10 @@ def test_missing_credentials_are_a_usage_error_before_native_client_startup(
 ) -> None:
     """Verify missing credentials are a usage error before native client startup.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for missing credentials are a usage error before native
-            client startup."""
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `config`.
+    Act: Call `plugin.pytest_configure` under `pytest.raises(pytest.UsageError)`.
+    Assert: Check `raises pytest.UsageError`; `config.option.rp_enabled is False`.
+    """
     config = make_config(tmp_path, rp_enabled=True)
     monkeypatch.setattr(
         reportportal.Settings,
@@ -75,10 +75,12 @@ def test_controller_registers_one_deferred_uploader_and_preserves_explicit_xml(
 ) -> None:
     """Verify controller registers one deferred uploader and preserves explicit xml.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for controller registers one deferred uploader and
-            preserves explicit xml."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `explicit_xml` parameters.
+    Act: Call `make_config` to obtain `config`.
+    Assert: Check `config.option.rp_enabled is False`; `name == 'browser_deferred_reportportal'`;
+            `uploader.junit == Path(config.option.xmlpath)`; `uploader.junit.parent.stat().st_mode &
+            511 == 448`.
+    """
     config = make_config(tmp_path, rp_enabled=True)
     if explicit_xml:
         config.option.xmlpath = str(tmp_path / "chosen.xml")
@@ -103,10 +105,12 @@ def test_upload_failure_is_distinct_from_a_verified_failing_pytest_run(
 ) -> None:
     """Verify upload failure is distinct from a verified failing pytest run.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for upload failure is distinct from a verified failing
-            pytest run."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `verified`, `exit_code` parameters.
+    Act: Finish the deferred upload for the chosen pytest exit code and verification state.
+    Assert: Check `uploader.failed is not verified`; `session.exitstatus == (exit_code if verified
+            else pytest.ExitCode.INTERRUPTED)`; `arguments[-2:] == ['--pytest-exit-code',
+            str(exit_code)]`; `settings is SETTINGS`.
+    """
 
     def publish(
         arguments: list[str], *, receipt: dict[str, Any], settings: reportportal.Settings
@@ -131,9 +135,10 @@ def test_inaccessible_target_fails_before_test_execution(
 ) -> None:
     """Verify inaccessible target fails before test execution.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for inaccessible target fails before test execution.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `uploader`, `session`.
+    Act: Call `uploader.pytest_sessionstart` under `pytest.raises(pytest.UsageError)`.
+    Assert: Check `raises pytest.UsageError`; `uploader.access_checked is False`; `uploader.result
+            is None`; `arguments == ['--check'] and settings is SETTINGS`.
     """
 
     def check(
@@ -158,9 +163,10 @@ def test_successful_access_check_does_not_claim_a_launch(
 ) -> None:
     """Verify successful access check does not claim a launch.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for successful access check does not claim a launch.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters.
+    Act: Call `plugin.DeferredReportPortal` to obtain `uploader`.
+    Assert: Check `uploader.access_checked is True`; `uploader.receipt.get('verified') is None`;
+            `arguments == ['--check'] and settings is SETTINGS`.
     """
 
     def check(
@@ -183,10 +189,13 @@ def test_real_pytest_direct_flag_reports_once_after_offline_tests(
 ) -> None:
     """Verify real pytest direct flag reports once after offline tests.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for real pytest direct flag reports once after offline
-            tests."""
+    Arrange: Use `tmp_path`, `workers`, `denied` parameters; prepare `conftest`, `environment`,
+             `overrides`.
+    Act: Call `subprocess.run` to obtain `result`.
+    Assert: Check `'INTERNALERROR' not in result.stdout + result.stderr`; `result.returncode == 1`;
+            `'Verified ReportPortal launch' in result.stdout`; `len(requests) == 1 and
+            requests[0]['method'] == 'GET'`.
+    """
     (tmp_path / "pyproject.toml").write_text(
         '[tool.pytest.ini_options]\naddopts=["--strict-config"]\n'
         'rp_endpoint="http://reportportal.example"\nrp_project="system_a"\n'

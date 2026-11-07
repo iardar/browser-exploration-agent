@@ -35,9 +35,10 @@ def test_logging_emits_one_redacted_json_record(
 ) -> None:
     """Verify logging emits one redacted json record.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for logging emits one redacted json record.
+    Arrange: Use `monkeypatch`, `with_details` parameters.
+    Act: Call `io.StringIO` to obtain `stream`.
+    Assert: Check `len(records) == 1`; `payload['level'] == 'WARNING'`; `payload['event'] ==
+            'Request failed: Bearer [REDACTED]'`; `set(payload) == {'level', 'event'}`.
     """
     stream = io.StringIO()
     monkeypatch.setattr(cli.sys, "stderr", stream)
@@ -83,10 +84,12 @@ def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
 ) -> None:
     """Verify environment defaults and explicit cli overrides reach the explorer.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for environment defaults and explicit cli overrides reach
-            the explorer."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `override` parameters; prepare `captured_settings`,
+             `captured_tasks`, `connection`, `arguments`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `len(captured_settings) == len(captured_tasks) == 1`;
+            `settings.output_dir == tmp_path`; `connection.entries == connection.exits == 1`.
+    """
     captured_settings: list[Settings] = []
     captured_tasks: list[BrowserExplorationTask] = []
     connection = FakeConnection()
@@ -180,10 +183,10 @@ def test_invalid_cli_input_never_constructs_an_explorer_or_creates_artifacts(
 ) -> None:
     """Verify invalid cli input never constructs an explorer or creates artifacts.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid cli input never constructs an explorer or
-            creates artifacts."""
+    Arrange: Use `tmp_path`, `monkeypatch`, `option`, `value` parameters; prepare `arguments`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 2`; `not list(tmp_path.iterdir())`.
+    """
 
     def forbidden_explorer(*args: Any, **kwargs: Any) -> None:
         pytest.fail("Invalid input must be rejected before constructing the explorer")
@@ -203,9 +206,10 @@ def test_model_option_overrides_environment_and_is_reported(
 ) -> None:
     """Verify model option overrides environment and is reported.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for model option overrides environment and is reported.
+    Arrange: Use `tmp_path`, `monkeypatch` parameters; prepare `captured`.
+    Act: Call `CliRunner.invoke` to obtain `response`.
+    Assert: Check `response.exit_code == 0`; `captured == ['cli-model']`; `result['model'] ==
+            'cli-model'`; `config['configured_model'] == 'cli-model'`.
     """
     captured: list[str] = []
 
@@ -240,9 +244,10 @@ def test_module_entry_point_prints_help_without_services(
 ) -> None:
     """Verify module entry point prints help without services.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for module entry point prints help without services.
+    Arrange: Use `monkeypatch`, `capsys` parameters.
+    Act: Call `runpy.run_module` under `pytest.raises(SystemExit)`.
+    Assert: Check `raises SystemExit`; `exc.value.code == 0`; `'Independent autonomous browser
+            exploration' in capsys.readouterr().out`.
     """
     monkeypatch.setattr(sys, "argv", ["qa-browser", "--help"])
     # The package is already imported by the offline fixture; runpy warns before

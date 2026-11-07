@@ -64,9 +64,9 @@ def policy(*, allow_mutations: bool = False, **kwargs: object) -> SafetyPolicy:
 def test_unsafe_urls_rejected(url: str) -> None:
     """Verify unsafe urls rejected.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for unsafe urls rejected.
+    Arrange: Use `url` parameter.
+    Act: Call `policy.validate_url` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
     """
     with pytest.raises(SafetyError):
         policy().validate_url(url)
@@ -75,9 +75,10 @@ def test_unsafe_urls_rejected(url: str) -> None:
 def test_exact_domains_and_normalization() -> None:
     """Verify exact domains and normalization.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for exact domains and normalization.
+    Arrange: Use the values passed to `policy.validate_url`.
+    Act: Evaluate `policy.validate_url` in the assertion.
+    Assert: Check `policy().validate_url('https://EXAMPLE.COM') == 'https://example.com/'`;
+            `policy().validate_url('https://example.com.:8443/x') == 'https://example.com:8443/x'`.
     """
     assert policy().validate_url("https://EXAMPLE.COM") == "https://example.com/"
     assert policy().validate_url("https://example.com.:8443/x") == "https://example.com:8443/x"
@@ -86,9 +87,10 @@ def test_exact_domains_and_normalization() -> None:
 def test_private_network_requires_both_opt_in_and_allowlist() -> None:
     """Verify private network requires both opt in and allowlist.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for private network requires both opt in and allowlist.
+    Arrange: prepare `task`.
+    Act: Call `SafetyPolicy.validate_url` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`; `allowed.validate_url(task.url) ==
+            'http://127.0.0.1:8765/'`.
     """
     task = BrowserExplorationTask(url="http://127.0.0.1:8765", objective="Demo")
     with pytest.raises(SafetyError, match="Private"):
@@ -111,9 +113,9 @@ def test_private_network_requires_both_opt_in_and_allowlist() -> None:
 def test_metadata_always_denied_even_with_private_opt_in(url: str) -> None:
     """Verify metadata always denied even with private opt in.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for metadata always denied even with private opt in.
+    Arrange: Use `url` parameter; prepare `task`.
+    Act: Call `SafetyPolicy.validate_url` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
     """
     task = BrowserExplorationTask(url=url, objective="Must fail")
     with pytest.raises(SafetyError, match="metadata"):
@@ -123,9 +125,9 @@ def test_metadata_always_denied_even_with_private_opt_in(url: str) -> None:
 def test_no_browser_action_without_external_network_boundary() -> None:
     """Verify no browser action without external network boundary.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for no browser action without external network boundary.
+    Arrange: prepare `task`, `restricted`.
+    Act: Call `restricted.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
     """
     task = BrowserExplorationTask(url="https://example.com/", objective="Explore")
     restricted = SafetyPolicy(task, Settings())
@@ -136,10 +138,12 @@ def test_no_browser_action_without_external_network_boundary() -> None:
 def test_observed_link_becomes_validated_navigation_and_ignores_model_label() -> None:
     """Verify observed link becomes validated navigation and ignores model label.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for observed link becomes validated navigation and ignores
-            model label."""
+    Arrange: Start with `policy()`.
+    Act: Evaluate `restricted.observe` in the assertion.
+    Assert: Check `restricted.observe(SNAPSHOT, require_url=True) ==
+            'https://example.com/articles'`; `restricted.authorize() equals values
+            'browser_navigate', 'url', 'https://example.com/article/123'`.
+    """
     restricted = policy()
     assert restricted.observe(SNAPSHOT, require_url=True) == "https://example.com/articles"
     assert restricted.authorize(
@@ -154,9 +158,9 @@ def test_observed_link_becomes_validated_navigation_and_ignores_model_label() ->
 def test_arbitrary_clicks_selectors_and_external_links_denied() -> None:
     """Verify arbitrary clicks selectors and external links denied.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for arbitrary clicks selectors and external links denied.
+    Arrange: Start with `policy()`.
+    Act: Call `policy` to obtain `restricted`.
+    Assert: Check `raises SafetyError`.
     """
     restricted = policy()
     restricted.observe(SNAPSHOT)
@@ -168,10 +172,11 @@ def test_arbitrary_clicks_selectors_and_external_links_denied() -> None:
 def test_mutation_flag_allows_observed_click_but_never_destructive_label() -> None:
     """Verify mutation flag allows observed click but never destructive label.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for mutation flag allows observed click but never
-            destructive label."""
+    Arrange: prepare `restricted`.
+    Act: Call `restricted.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `restricted.authorize() equals values 'browser_click', 'ref', 'e2'`; `raises
+            SafetyError`.
+    """
     restricted = policy(allow_mutations=True)
     restricted.observe(SNAPSHOT)
     assert restricted.authorize("browser_click", {"ref": "e2"}, CAPABILITIES) == (
@@ -188,9 +193,9 @@ def test_mutation_flag_allows_observed_click_but_never_destructive_label() -> No
 def test_known_mutating_and_authentication_routes_are_denied(suffix: str) -> None:
     """Verify known mutating and authentication routes are denied.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for known mutating and authentication routes are denied.
+    Arrange: Use `suffix` parameter.
+    Act: Call `policy.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`.
     """
     with pytest.raises(SafetyError):
         policy().authorize(
@@ -201,9 +206,10 @@ def test_known_mutating_and_authentication_routes_are_denied(suffix: str) -> Non
 def test_observation_rechecks_navigation_and_expires_references() -> None:
     """Verify observation rechecks navigation and expires references.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for observation rechecks navigation and expires references.
+    Arrange: prepare `restricted`.
+    Act: Call `restricted.observe` under `pytest.raises(SafetyError)`.
+    Assert: Check `restricted.observe('Console: all good') == 'https://example.com/articles'`;
+            `raises SafetyError`; `restricted.element_labels == {}`.
     """
     restricted = policy()
     restricted.observe(SNAPSHOT)
@@ -220,9 +226,9 @@ def test_observation_rechecks_navigation_and_expires_references() -> None:
 def test_forbidden_tools_and_filename_args_cannot_escape_policy() -> None:
     """Verify forbidden tools and filename args cannot escape policy.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for forbidden tools and filename args cannot escape policy.
+    Arrange: Start with `policy()`.
+    Act: Call `policy` to obtain `restricted`.
+    Assert: Check `raises SafetyError`.
     """
     restricted = policy()
     for name, arguments in (
@@ -237,9 +243,10 @@ def test_forbidden_tools_and_filename_args_cannot_escape_policy() -> None:
 def test_screenshot_target_must_be_an_observed_reference() -> None:
     """Verify screenshot target must be an observed reference.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for screenshot target must be an observed reference.
+    Arrange: prepare `restricted`.
+    Act: Call `restricted.authorize` under `pytest.raises(SafetyError)`.
+    Assert: Check `raises SafetyError`; `restricted.authorize() equals values
+            'browser_take_screenshot', 'target', 'scale'`.
     """
     restricted = policy()
     restricted.observe(SNAPSHOT)

@@ -9,9 +9,11 @@ from browser_exploration.config import Settings
 def test_environment_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Verify environment configuration.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for environment configuration.
+    Arrange: Use `monkeypatch`, `tmp_path` parameters.
+    Act: Call `Settings` to obtain `settings`.
+    Assert: Check `settings.mcp_url == 'http://127.0.0.1:9999/mcp'`; `settings.model ==
+            'available-model'`; `settings.output_dir == tmp_path`; `settings.langsmith_enabled is
+            False`.
     """
     monkeypatch.setenv("PLAYWRIGHT_MCP_URL", "http://127.0.0.1:9999/mcp")
     monkeypatch.setenv("OPENAI_MODEL", "available-model")
@@ -42,9 +44,9 @@ def test_environment_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 def test_invalid_mcp_configuration(endpoint: str) -> None:
     """Verify invalid mcp configuration.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for invalid mcp configuration.
+    Arrange: Use `endpoint` parameter.
+    Act: Call `Settings` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         Settings(mcp_url=endpoint)
@@ -53,9 +55,11 @@ def test_invalid_mcp_configuration(endpoint: str) -> None:
 def test_remote_mcp_requires_encrypted_transport() -> None:
     """Verify remote mcp requires encrypted transport.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for remote mcp requires encrypted transport.
+    Arrange: Use the values passed to
+             `Settings(mcp_url='https://private.example/mcp').mcp_url.startswith`.
+    Act: Evaluate `Settings(mcp_url='https://private.example/mcp').mcp_url.startswith` in the
+         assertion.
+    Assert: Check `Settings(mcp_url='https://private.example/mcp').mcp_url.startswith('https')`.
     """
     assert Settings(mcp_url="https://private.example/mcp").mcp_url.startswith("https")
 
@@ -63,9 +67,9 @@ def test_remote_mcp_requires_encrypted_transport() -> None:
 def test_execution_budget_configuration() -> None:
     """Verify execution budget configuration.
 
-    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
-    Act: Exercise the behavior described by the test.
-    Assert: Confirm the expected outcome for execution budget configuration.
+    Arrange: Use the values passed to `pytest.raises`.
+    Act: Call `Settings` under `pytest.raises(ValidationError)`.
+    Assert: Check `raises ValidationError`.
     """
     with pytest.raises(ValidationError):
         Settings(max_steps=0)
