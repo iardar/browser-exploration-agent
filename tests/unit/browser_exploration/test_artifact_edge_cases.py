@@ -45,6 +45,13 @@ def stored_payload(store: ArtifactStore, observation: BrowserObservation, raw: A
 
 
 def test_disabled_raw_retention_never_serializes_an_unserializable_payload(tmp_path: Path) -> None:
+    """Verify disabled raw retention never serializes an unserializable payload.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for disabled raw retention never serializes an
+            unserializable payload."""
+
     class UnserializablePayload:
         def __str__(self) -> str:
             raise AssertionError("raw payload must not be inspected when retention is disabled")
@@ -60,6 +67,12 @@ def test_disabled_raw_retention_never_serializes_an_unserializable_payload(tmp_p
 
 @pytest.mark.parametrize("wrapped", [False, True], ids=["string-url", "url-object"])
 def test_legacy_image_data_urls_become_separate_webp_files(tmp_path: Path, wrapped: bool) -> None:
+    """Verify legacy image data urls become separate webp files.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for legacy image data urls become separate webp files.
+    """
     image_bytes = b"synthetic screenshot bytes"
     encoded = base64.b64encode(image_bytes).decode()
     image_url = "data:image/webp;base64," + encoded
@@ -97,6 +110,12 @@ def test_legacy_image_data_urls_become_separate_webp_files(tmp_path: Path, wrapp
 def test_invalid_screenshots_are_recorded_as_omitted_without_binary_files(
     tmp_path: Path, raw: dict[str, Any], reason: str
 ) -> None:
+    """Verify invalid screenshots are recorded as omitted without binary files.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid screenshots are recorded as omitted without
+            binary files."""
     store = ArtifactStore(tmp_path, "invalid-image", retain_raw_evidence=True)
     payload = stored_payload(store, observed(), raw)
     assert payload == {"type": "image_omitted", "reason": reason}
@@ -105,6 +124,12 @@ def test_invalid_screenshots_are_recorded_as_omitted_without_binary_files(
 
 
 def test_oversized_image_is_rejected_before_binary_decoding(tmp_path: Path) -> None:
+    """Verify oversized image is rejected before binary decoding.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for oversized image is rejected before binary decoding.
+    """
     store = ArtifactStore(tmp_path, "large-image", retain_raw_evidence=True)
     payload = stored_payload(
         store,
@@ -130,6 +155,12 @@ def test_oversized_image_is_rejected_before_binary_decoding(tmp_path: Path) -> N
 def test_nonembedded_image_metadata_is_not_mistaken_for_a_binary_payload(
     tmp_path: Path, raw: dict[str, Any]
 ) -> None:
+    """Verify nonembedded image metadata is not mistaken for a binary payload.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for nonembedded image metadata is not mistaken for a binary
+            payload."""
     store = ArtifactStore(tmp_path, "metadata-image", retain_raw_evidence=True)
     payload = stored_payload(store, observed(), raw)
     assert payload == raw
@@ -137,6 +168,13 @@ def test_nonembedded_image_metadata_is_not_mistaken_for_a_binary_payload(
 
 
 def test_nested_pydantic_evidence_extracts_each_image_with_unique_reference(tmp_path: Path) -> None:
+    """Verify nested pydantic evidence extracts each image with unique reference.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for nested pydantic evidence extracts each image with
+            unique reference."""
+
     class MCPResponse(BaseModel):
         content: list[dict[str, Any]]
 
@@ -164,6 +202,12 @@ def test_nested_pydantic_evidence_extracts_each_image_with_unique_reference(tmp_
 
 
 def test_evidence_directory_symlink_cannot_redirect_retained_data(tmp_path: Path) -> None:
+    """Verify evidence directory symlink cannot redirect retained data.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for evidence directory symlink cannot redirect retained
+            data."""
     outside = tmp_path / "outside"
     outside.mkdir()
     store = ArtifactStore(tmp_path, "symlink-evidence", retain_raw_evidence=True)
@@ -178,6 +222,12 @@ def test_evidence_directory_symlink_cannot_redirect_retained_data(tmp_path: Path
 def test_existing_artifact_symlink_does_not_overwrite_an_external_file(
     tmp_path: Path, filename: str
 ) -> None:
+    """Verify existing artifact symlink does not overwrite an external file.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for existing artifact symlink does not overwrite an
+            external file."""
     store = ArtifactStore(tmp_path, "file-symlink")
     outside = tmp_path / "existing-document.txt"
     outside.write_text("keep this document")
@@ -194,6 +244,12 @@ def test_existing_artifact_symlink_does_not_overwrite_an_external_file(
 
 
 def test_result_for_another_run_is_rejected_without_creating_reports(tmp_path: Path) -> None:
+    """Verify result for another run is rejected without creating reports.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for result for another run is rejected without creating
+            reports."""
     store = ArtifactStore(tmp_path, "this-run")
     with pytest.raises(ValueError, match="does not match"):
         store.save_result(result("other-run"))
@@ -207,12 +263,24 @@ def test_result_for_another_run_is_rejected_without_creating_reports(tmp_path: P
 def test_unsafe_or_oversized_run_ids_do_not_create_directories(
     tmp_path: Path, identifier: str
 ) -> None:
+    """Verify unsafe or oversized run ids do not create directories.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unsafe or oversized run ids do not create directories.
+    """
     with pytest.raises(ValueError, match="safe filename"):
         ArtifactStore(tmp_path, identifier)
     assert list(tmp_path.iterdir()) == []
 
 
 def test_reopening_a_run_preserves_its_existing_trajectory(tmp_path: Path) -> None:
+    """Verify reopening a run preserves its existing trajectory.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reopening a run preserves its existing trajectory.
+    """
     first_store = ArtifactStore(tmp_path, "reopened")
     first_store.record(observed("first"), None)
     second_store = ArtifactStore(tmp_path, "reopened")
@@ -226,6 +294,12 @@ def test_reopening_a_run_preserves_its_existing_trajectory(tmp_path: Path) -> No
 
 
 def test_ipv6_url_redaction_preserves_destination_and_removes_credentials(tmp_path: Path) -> None:
+    """Verify ipv6 url redaction preserves destination and removes credentials.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for ipv6 url redaction preserves destination and removes
+            credentials."""
     original = "https://user:private@[2001:db8::1]:8443/article?search=private&search=other#private"
     redacted = redact_text(original)
     parsed = urlsplit(redacted)
@@ -240,10 +314,23 @@ def test_ipv6_url_redaction_preserves_destination_and_removes_credentials(tmp_pa
 
 @pytest.mark.parametrize("url", ["https://example.com:invalid/path", "http://[broken/path"])
 def test_malformed_urls_are_replaced_without_exposing_their_payload(url: str) -> None:
+    """Verify malformed urls are replaced without exposing their payload.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for malformed urls are replaced without exposing their
+            payload."""
     assert redact_text("Observed " + url) == "Observed [REDACTED_URL]"
 
 
 def test_nested_model_tuple_and_custom_object_redaction_returns_safe_json_values() -> None:
+    """Verify nested model tuple and custom object redaction returns safe json values.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for nested model tuple and custom object redaction returns
+            safe json values."""
+
     class Metadata(BaseModel):
         session_id: str
         valid: bool
@@ -271,6 +358,12 @@ def test_nested_model_tuple_and_custom_object_redaction_returns_safe_json_values
 
 @pytest.mark.parametrize("invalid", [True, False, -1, 1.5, "20", {}, []])
 def test_invalid_provider_usage_poison_only_the_affected_total(invalid: Any) -> None:
+    """Verify invalid provider usage poison only the affected total.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid provider usage poison only the affected total.
+    """
     usage = TokenAccumulator()
     usage.add({"input_tokens": invalid, "output_tokens": 0, "total_tokens": 99})
     usage.add({"input_tokens": 3, "output_tokens": 2, "total_tokens": 5})
@@ -279,12 +372,24 @@ def test_invalid_provider_usage_poison_only_the_affected_total(invalid: Any) -> 
 
 
 def test_provider_totals_are_not_reconstructed_from_component_values() -> None:
+    """Verify provider totals are not reconstructed from component values.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for provider totals are not reconstructed from component
+            values."""
     usage = TokenAccumulator()
     usage.add({"input_tokens": 0, "output_tokens": 0, "total_tokens": 7})
     assert usage.counts() == {"input_tokens": 0, "output_tokens": 0, "total_tokens": 7}
 
 
 def test_token_results_and_separate_runs_do_not_share_mutable_accounting() -> None:
+    """Verify token results and separate runs do not share mutable accounting.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for token results and separate runs do not share mutable
+            accounting."""
     first = TokenAccumulator()
     second = TokenAccumulator()
     first.add({"input_tokens": 1, "output_tokens": 2, "total_tokens": 3})

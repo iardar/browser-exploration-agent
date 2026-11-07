@@ -13,6 +13,12 @@ from browser_exploration.contracts import (
 
 
 def test_task_defaults_and_independent_contract() -> None:
+    """Verify task defaults and independent contract.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for task defaults and independent contract.
+    """
     task = BrowserExplorationTask(url="https://Example.com/page", objective=" Inspect page ")
     assert task.allowed_domains == ["example.com"]
     assert task.objective == "Inspect page"
@@ -32,6 +38,12 @@ def test_task_defaults_and_independent_contract() -> None:
     ],
 )
 def test_task_rejects_invalid_urls(url: str) -> None:
+    """Verify task rejects invalid urls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for task rejects invalid urls.
+    """
     with pytest.raises(ValidationError):
         BrowserExplorationTask(url=url, objective="Inspect")
 
@@ -52,6 +64,12 @@ def test_task_rejects_invalid_urls(url: str) -> None:
     ],
 )
 def test_task_validates_limits_and_unknown_fields(changes: dict[str, object]) -> None:
+    """Verify task validates limits and unknown fields.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for task validates limits and unknown fields.
+    """
     with pytest.raises(ValidationError):
         BrowserExplorationTask.model_validate(
             {"url": "https://example.com", "objective": "Inspect", **changes}
@@ -59,6 +77,12 @@ def test_task_validates_limits_and_unknown_fields(changes: dict[str, object]) ->
 
 
 def test_confirmed_findings_and_behaviors_require_evidence() -> None:
+    """Verify confirmed findings and behaviors require evidence.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for confirmed findings and behaviors require evidence.
+    """
     values = {
         "id": "f1",
         "title": "Unexpected navigation",
@@ -78,6 +102,12 @@ def test_confirmed_findings_and_behaviors_require_evidence() -> None:
 
 
 def test_result_retains_partial_status_and_unknown_metrics() -> None:
+    """Verify result retains partial status and unknown metrics.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for result retains partial status and unknown metrics.
+    """
     now = datetime.now(UTC)
     result = BrowserExplorationResult(
         run_id="r1",

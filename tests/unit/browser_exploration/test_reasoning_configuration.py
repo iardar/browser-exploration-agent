@@ -43,6 +43,12 @@ from tests.unit.browser_exploration.fakes import FakeConnection, FakeModel
     ],
 )
 def test_only_known_models_get_an_explicit_default(model: str, expected: str | None) -> None:
+    """Verify only known models get an explicit default.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for only known models get an explicit default.
+    """
     settings = Settings(model=model)
     assert settings.model == model
     assert settings.reasoning_effort is None
@@ -51,11 +57,23 @@ def test_only_known_models_get_an_explicit_default(model: str, expected: str | N
 
 @pytest.mark.parametrize("effort", ["none", "low", "medium", "high", "xhigh", "max"])
 def test_explicit_effort_overrides_the_model_default(effort: str) -> None:
+    """Verify explicit effort overrides the model default.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for explicit effort overrides the model default.
+    """
     settings = Settings.model_validate({"model": "gpt-5.6-sol", "reasoning_effort": effort})
     assert settings.effective_reasoning_effort == effort
 
 
 def test_invalid_reasoning_configuration_is_rejected_without_leaking_input() -> None:
+    """Verify invalid reasoning configuration is rejected without leaking input.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid reasoning configuration is rejected without
+            leaking input."""
     with pytest.raises(ValidationError):
         Settings.model_validate({"reasoning_effort": "unsupported"})
     result = CliRunner().invoke(
@@ -70,6 +88,12 @@ def test_invalid_reasoning_configuration_is_rejected_without_leaking_input() -> 
 def test_model_check_honors_effort_environment_and_cli(
     monkeypatch: pytest.MonkeyPatch, override: str | None
 ) -> None:
+    """Verify model check honors effort environment and cli.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model check honors effort environment and cli.
+    """
     selected: list[Settings] = []
 
     def model_factory(settings: Settings) -> FakeModel:
@@ -91,6 +115,13 @@ def test_model_check_honors_effort_environment_and_cli(
 def test_exploration_logs_and_persists_effective_effort(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, override: str | None
 ) -> None:
+    """Verify exploration logs and persists effective effort.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for exploration logs and persists effective effort.
+    """
+
     class CapturingExplorer:
         def __init__(self, settings: Settings) -> None:
             self.delegate = AutonomousBrowserExplorer(
@@ -136,6 +167,12 @@ def test_exploration_logs_and_persists_effective_effort(
 async def test_actual_sdk_request_contains_the_configured_effort(
     model: str, effort: str | None, expected: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify actual sdk request contains the configured effort.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for actual sdk request contains the configured effort.
+    """
     captured: list[dict[str, Any]] = []
 
     async def respond(request: httpx.Request) -> httpx.Response:
@@ -229,6 +266,12 @@ async def test_actual_sdk_request_contains_the_configured_effort(
 
 
 def test_reasoning_error_is_actionable_without_the_provider_body() -> None:
+    """Verify reasoning error is actionable without the provider body.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reasoning error is actionable without the provider
+            body."""
     error = APIStatusError(
         "private-provider-body",
         response=httpx2.Response(400, request=httpx2.Request("POST", "https://example.com/")),

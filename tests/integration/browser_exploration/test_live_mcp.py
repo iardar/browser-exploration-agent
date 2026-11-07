@@ -21,7 +21,12 @@ pytestmark = [
 
 @pytest.mark.asyncio
 async def test_controlled_demo_uses_persistent_mcp_session() -> None:
-    """Navigation followed by snapshots retains browser state in the same MCP session."""
+    """Navigation followed by snapshots retains browser state in the same MCP session.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for controlled demo uses persistent mcp session.
+    """
     target = os.environ.get("QA_BROWSER_LIVE_URL", "http://127.0.0.1:8765/")
     parsed = urlsplit(target)
     assert parsed.scheme == "http", "The live fixture must use the local static demo"

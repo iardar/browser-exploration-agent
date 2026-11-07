@@ -28,10 +28,22 @@ from tests.unit.browser_exploration.test_graph import settings, task
 
 @pytest.mark.parametrize("raw", [None, 42, False, object()])
 def test_non_content_values_do_not_invent_observation_text(raw: Any) -> None:
+    """Verify non content values do not invent observation text.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for non content values do not invent observation text.
+    """
     assert graph.observation_text(raw) == ""
 
 
 def test_plain_and_nested_text_preserve_order_but_fallback_metadata_is_redacted() -> None:
+    """Verify plain and nested text preserve order but fallback metadata is redacted.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for plain and nested text preserve order but fallback
+            metadata is redacted."""
     text = graph.observation_text(
         ["First", {"content": [{"type": "text", "text": "Second"}]}, {"token": "private"}]
     )
@@ -41,6 +53,12 @@ def test_plain_and_nested_text_preserve_order_but_fallback_metadata_is_redacted(
 
 
 async def test_context_overflow_after_navigation_stops_before_model_call(tmp_path: Path) -> None:
+    """Verify context overflow after navigation stops before model call.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for context overflow after navigation stops before model
+            call."""
     redirected = "https://example.com/" + "a" * 5_000
     session = FakeSession([snapshot(redirected), snapshot(redirected)])
     connection = FakeConnection(session)
@@ -64,6 +82,12 @@ async def test_exact_wall_clock_boundary_stops_before_the_next_action(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Replace only the graph's clock; changing the asyncio clock would hide deadline bugs.
+    """Verify exact wall clock boundary stops before the next action.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for exact wall clock boundary stops before the next action.
+    """
     clock = SimpleNamespace(now=100.0)
     monkeypatch.setattr(graph, "time", SimpleNamespace(monotonic=lambda: clock.now))
 
@@ -92,6 +116,12 @@ async def test_exact_wall_clock_boundary_stops_before_the_next_action(
 async def test_missing_model_credentials_fail_after_bootstrap_without_provider_calls(
     tmp_path: Path,
 ) -> None:
+    """Verify missing model credentials fail after bootstrap without provider calls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for missing model credentials fail after bootstrap without
+            provider calls."""
     connection = FakeConnection()
     result = await AutonomousBrowserExplorer(settings(tmp_path), connection=connection).explore(
         task()
@@ -108,6 +138,12 @@ async def test_missing_model_credentials_fail_after_bootstrap_without_provider_c
 async def test_lazy_model_is_initialized_once_and_reused_across_decisions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify lazy model is initialized once and reused across decisions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for lazy model is initialized once and reused across
+            decisions."""
     connection = FakeConnection()
     model = FakeModel(
         [
@@ -137,6 +173,12 @@ async def test_lazy_model_is_initialized_once_and_reused_across_decisions(
 async def test_unexpected_dependency_errors_persist_actual_failure_without_secrets(
     tmp_path: Path, failure_stage: str
 ) -> None:
+    """Verify unexpected dependency errors persist actual failure without secrets.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unexpected dependency errors persist actual failure
+            without secrets."""
     error = RuntimeError("authorization: Bearer private-service-credential")
     connection = FakeConnection(
         error=error if failure_stage == "connect" else None,
@@ -166,6 +208,12 @@ async def test_unexpected_dependency_errors_persist_actual_failure_without_secre
 async def test_repeated_checks_are_deduplicated_and_findings_can_be_verified_later(
     tmp_path: Path,
 ) -> None:
+    """Verify repeated checks are deduplicated and findings can be verified later.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for repeated checks are deduplicated and findings can be
+            verified later."""
     behavior = VerifiedBehavior(description="Heading visible", evidence_ids=["evidence-obs-0002"])
     potential = BrowserFinding(
         id="heading-check",
@@ -216,6 +264,12 @@ async def test_repeated_checks_are_deduplicated_and_findings_can_be_verified_lat
 
 
 async def test_unseen_screenshot_pixels_cannot_confirm_model_claims(tmp_path: Path) -> None:
+    """Verify unseen screenshot pixels cannot confirm model claims.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unseen screenshot pixels cannot confirm model claims.
+    """
     session = FakeSession(
         [snapshot(), snapshot(), [{"type": "image", "data": "cGl4ZWxz", "mimeType": "image/png"}]]
     )

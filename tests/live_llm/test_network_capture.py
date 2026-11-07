@@ -15,7 +15,12 @@ pytestmark = pytest.mark.live_llm
 async def test_real_model_captures_network_evidence_and_finishes(
     case_id: str, live_decision_model: BudgetedDecisionModel, live_artifact_dir: Path
 ) -> None:
-    """Require real capture/completion decisions, then grade the saved artifacts."""
+    """Require real capture/completion decisions, then grade the saved artifacts.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for real model captures network evidence and finishes.
+    """
     result, directory = await run_network_replay(
         live_artifact_dir,
         case_id,

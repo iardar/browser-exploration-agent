@@ -32,6 +32,12 @@ def make_config(tmp_path: Path, **options: Any) -> pytest.Config:
 def test_inactive_and_worker_processes_load_no_credentials(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
+    """Verify inactive and worker processes load no credentials.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for inactive and worker processes load no credentials.
+    """
     config = make_config(tmp_path, rp_enabled=mode != "ordinary", **{mode: True})
     if mode == "worker":
         config.workerinput = {}  # type: ignore[attr-defined]
@@ -46,6 +52,12 @@ def test_inactive_and_worker_processes_load_no_credentials(
 def test_missing_credentials_are_a_usage_error_before_native_client_startup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify missing credentials are a usage error before native client startup.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for missing credentials are a usage error before native
+            client startup."""
     config = make_config(tmp_path, rp_enabled=True)
     monkeypatch.setattr(
         reportportal.Settings,
@@ -61,6 +73,12 @@ def test_missing_credentials_are_a_usage_error_before_native_client_startup(
 def test_controller_registers_one_deferred_uploader_and_preserves_explicit_xml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, explicit_xml: bool
 ) -> None:
+    """Verify controller registers one deferred uploader and preserves explicit xml.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for controller registers one deferred uploader and
+            preserves explicit xml."""
     config = make_config(tmp_path, rp_enabled=True)
     if explicit_xml:
         config.option.xmlpath = str(tmp_path / "chosen.xml")
@@ -83,6 +101,13 @@ def test_controller_registers_one_deferred_uploader_and_preserves_explicit_xml(
 def test_upload_failure_is_distinct_from_a_verified_failing_pytest_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verified: bool, exit_code: int
 ) -> None:
+    """Verify upload failure is distinct from a verified failing pytest run.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for upload failure is distinct from a verified failing
+            pytest run."""
+
     def publish(
         arguments: list[str], *, receipt: dict[str, Any], settings: reportportal.Settings
     ) -> int:
@@ -104,6 +129,13 @@ def test_upload_failure_is_distinct_from_a_verified_failing_pytest_run(
 def test_inaccessible_target_fails_before_test_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify inaccessible target fails before test execution.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for inaccessible target fails before test execution.
+    """
+
     def check(
         arguments: list[str], *, receipt: dict[str, Any], settings: reportportal.Settings
     ) -> int:
@@ -124,6 +156,13 @@ def test_inaccessible_target_fails_before_test_execution(
 def test_successful_access_check_does_not_claim_a_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify successful access check does not claim a launch.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for successful access check does not claim a launch.
+    """
+
     def check(
         arguments: list[str], *, receipt: dict[str, Any], settings: reportportal.Settings
     ) -> int:
@@ -142,6 +181,12 @@ def test_successful_access_check_does_not_claim_a_launch(
 def test_real_pytest_direct_flag_reports_once_after_offline_tests(
     tmp_path: Path, workers: int, denied: bool
 ) -> None:
+    """Verify real pytest direct flag reports once after offline tests.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for real pytest direct flag reports once after offline
+            tests."""
     (tmp_path / "pyproject.toml").write_text(
         '[tool.pytest.ini_options]\naddopts=["--strict-config"]\n'
         'rp_endpoint="http://reportportal.example"\nrp_project="system_a"\n'
@@ -206,6 +251,12 @@ def test_real_pytest_direct_flag_reports_once_after_offline_tests(
         import pytest
 
         def test_offline():
+            '''Verify the generated offline test runs without reporting credentials.
+
+            Arrange: Start pytest with the isolated environment and mocked reporting transport.
+            Act: Record execution and inspect the process environment and access-check requests.
+            Assert: Confirm the test ran offline with no API key and one preflight GET request.
+            '''
             import json
             (Path(__file__).parent / "test-ran").touch()
             assert socket.getaddrinfo.__module__ == "tests.unit.conftest"
@@ -214,10 +265,22 @@ def test_real_pytest_direct_flag_reports_once_after_offline_tests(
             assert len(requests) == 1 and requests[0]["method"] == "GET"
 
         def test_failure():
+            '''Verify an intentional generated-test failure reaches the report.
+
+            Arrange: Define a test whose assertion is deliberately false.
+            Act: Execute the assertion during the nested pytest run.
+            Assert: Let pytest record the intentional failure for publication verification.
+            '''
             assert False, "Intentional failure must reach the report"
 
         @pytest.mark.skip(reason="Intentional skip must reach the report")
         def test_skip():
+            '''Verify an intentional generated-test skip reaches the report.
+
+            Arrange: Mark the generated test with an intentional skip reason.
+            Act: Let pytest collect and skip the test.
+            Assert: Preserve the skipped outcome for publication verification.
+            '''
             pass
     """)
     )

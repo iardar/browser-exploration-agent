@@ -10,6 +10,12 @@ from tests.unit.browser_exploration.test_context_builder import observation
 
 @pytest.mark.parametrize("observation_limit", [1, 12, 13])
 def test_tiny_observation_limits_preserve_authoritative_context(observation_limit: int) -> None:
+    """Verify tiny observation limits preserve authoritative context.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for tiny observation limits preserve authoritative context.
+    """
     task = BrowserExplorationTask(
         url="https://example.com/article",
         objective="Inspect available links. Do not authenticate or publish content.",
@@ -32,6 +38,12 @@ def test_tiny_observation_limits_preserve_authoritative_context(observation_limi
 
 
 def test_saturated_context_selects_newest_observation_before_lower_priority_sections() -> None:
+    """Verify saturated context selects newest observation before lower priority sections.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for saturated context selects newest observation before
+            lower priority sections."""
     task = BrowserExplorationTask(
         url="https://example.com/article",
         objective="Inspect the article. Do not modify persistent data.",
@@ -65,6 +77,12 @@ def test_saturated_context_selects_newest_observation_before_lower_priority_sect
 
 
 def test_reusing_context_builder_does_not_retain_prior_run_information() -> None:
+    """Verify reusing context builder does not retain prior run information.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reusing context builder does not retain prior run
+            information."""
     builder = ContextBuilder()
     first_task = BrowserExplorationTask(
         url="https://first.example.com", objective="Inspect first application"

@@ -28,6 +28,12 @@ def sample_report() -> dict[str, Any]:
 
 
 def test_totals_weight_counts_and_handle_files_without_branches() -> None:
+    """Verify totals weight counts and handle files without branches.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for totals weight counts and handle files without branches.
+    """
     files = sample_report()["files"]
     files["scripts/large.py"] = {
         "summary": {
@@ -44,6 +50,12 @@ def test_totals_weight_counts_and_handle_files_without_branches() -> None:
 
 
 def test_comparison_preserves_previous_snapshot_and_discloses_changed_scope(tmp_path: Path) -> None:
+    """Verify comparison preserves previous snapshot and discloses changed scope.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for comparison preserves previous snapshot and discloses
+            changed scope."""
     before, after = tmp_path / "before", tmp_path / "after"
     before.mkdir()
     after.mkdir()
@@ -71,6 +83,12 @@ def test_runner_preserves_failures_and_records_only_offline_commands(
     exit_code: int,
     has_report: bool,
 ) -> None:
+    """Verify runner preserves failures and records only offline commands.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for runner preserves failures and records only offline
+            commands."""
     monkeypatch.setattr(coverage_report, "REPORTS", tmp_path / "reports")
     monkeypatch.setenv("PYTEST_ADDOPTS", "--live-llm --reportportal")
     monkeypatch.setenv("LANGSMITH_API_KEY", "private-secret")
@@ -126,6 +144,12 @@ def test_invalid_options_do_not_create_a_snapshot(
     tmp_path: Path,
     arguments: list[str],
 ) -> None:
+    """Verify invalid options do not create a snapshot.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid options do not create a snapshot.
+    """
     reports = tmp_path / "reports"
     monkeypatch.setattr(coverage_report, "REPORTS", reports)
     with pytest.raises(SystemExit) as caught:

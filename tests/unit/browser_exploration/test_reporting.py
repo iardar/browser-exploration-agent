@@ -30,6 +30,12 @@ def observation() -> BrowserObservation:
 
 
 def test_default_retention_stores_only_redacted_metadata(tmp_path: Path) -> None:
+    """Verify default retention stores only redacted metadata.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for default retention stores only redacted metadata.
+    """
     store = ArtifactStore(tmp_path, "run1")
     observed = observation()
     reference = store.record(observed, {"private_page": "FULL-PAGE-SECRET"})
@@ -48,6 +54,12 @@ def test_default_retention_stores_only_redacted_metadata(tmp_path: Path) -> None
 
 
 def test_opted_in_evidence_stores_images_outside_json(tmp_path: Path) -> None:
+    """Verify opted in evidence stores images outside json.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for opted in evidence stores images outside json.
+    """
     store = ArtifactStore(tmp_path, "run2", retain_raw_evidence=True)
     encoded = base64.b64encode(b"example-image-bytes").decode()
     reference = store.record(
@@ -72,6 +84,12 @@ def test_opted_in_evidence_stores_images_outside_json(tmp_path: Path) -> None:
 
 
 def test_normalized_adapter_images_are_extracted(tmp_path: Path) -> None:
+    """Verify normalized adapter images are extracted.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for normalized adapter images are extracted.
+    """
     store = ArtifactStore(tmp_path, "adapter-image", retain_raw_evidence=True)
     encoded = base64.b64encode(b"adapter-jpeg-image").decode()
     reference = store.record(
@@ -85,6 +103,12 @@ def test_normalized_adapter_images_are_extracted(tmp_path: Path) -> None:
 
 
 def test_result_and_metrics_are_valid_json_with_actual_failure_status(tmp_path: Path) -> None:
+    """Verify result and metrics are valid json with actual failure status.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for result and metrics are valid json with actual failure
+            status."""
     store = ArtifactStore(tmp_path, "run3")
     now = datetime.now(UTC)
     result = BrowserExplorationResult(
@@ -102,6 +126,12 @@ def test_result_and_metrics_are_valid_json_with_actual_failure_status(tmp_path: 
 
 
 def test_redaction_known_patterns() -> None:
+    """Verify redaction known patterns.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for redaction known patterns.
+    """
     value = redact(
         {
             "Authorization": "Bearer token-value",
@@ -117,6 +147,12 @@ def test_redaction_known_patterns() -> None:
 
 
 def test_relative_snapshot_links_redact_query_values_and_fragments() -> None:
+    """Verify relative snapshot links redact query values and fragments.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for relative snapshot links redact query values and
+            fragments."""
     redacted = redact_text(
         "  - /url: /search?q=private-search&tracking=private-code#private-fragment"
     )
@@ -126,6 +162,12 @@ def test_relative_snapshot_links_redact_query_values_and_fragments() -> None:
 
 
 def test_path_traversal_and_symlink_rejected(tmp_path: Path) -> None:
+    """Verify path traversal and symlink rejected.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for path traversal and symlink rejected.
+    """
     with pytest.raises(ValueError):
         ArtifactStore(tmp_path, "../outside")
     (tmp_path / "symlink").symlink_to(tmp_path, target_is_directory=True)
@@ -139,6 +181,12 @@ def test_path_traversal_and_symlink_rejected(tmp_path: Path) -> None:
 
 
 def test_schemas_are_exported(tmp_path: Path) -> None:
+    """Verify schemas are exported.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for schemas are exported.
+    """
     write_schemas(tmp_path)
     schema = json.loads((tmp_path / "BrowserExplorationResult.schema.json").read_text())
     assert schema["properties"]["schema_version"]["const"] == "1.0"
@@ -146,6 +194,12 @@ def test_schemas_are_exported(tmp_path: Path) -> None:
 
 
 def test_comparison_artifacts_preserve_model_and_redact_decision_secrets(tmp_path: Path) -> None:
+    """Verify comparison artifacts preserve model and redact decision secrets.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for comparison artifacts preserve model and redact decision
+            secrets."""
     store = ArtifactStore(tmp_path, "model-comparison")
     task = BrowserExplorationTask(
         url="https://example.com", objective="Search", requirement_text="omitted-requirement"

@@ -60,6 +60,12 @@ def client(monkeypatch: pytest.MonkeyPatch) -> FakeClient:
 async def test_one_initialized_session_and_one_discovery_for_many_calls(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify one initialized session and one discovery for many calls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for one initialized session and one discovery for many
+            calls."""
     calls: list[str] = []
     loads: list[object] = []
 
@@ -83,6 +89,12 @@ async def test_one_initialized_session_and_one_discovery_for_many_calls(
 async def test_check_no_api_key_and_no_browser_actions(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify check no api key and no browser actions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for check no api key and no browser actions.
+    """
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     calls: list[str] = []
 
@@ -100,6 +112,13 @@ async def test_check_no_api_key_and_no_browser_actions(
 async def test_connection_failure_is_structured_and_sanitized(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify connection failure is structured and sanitized.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for connection failure is structured and sanitized.
+    """
+
     async def fail(session: object) -> list[BaseTool]:
         raise ConnectionError("Authorization: Bearer secret")
 
@@ -113,6 +132,13 @@ async def test_connection_failure_is_structured_and_sanitized(
 async def test_check_times_out_and_closes_session(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify check times out and closes session.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for check times out and closes session.
+    """
+
     async def hang(session: object) -> list[BaseTool]:
         await asyncio.Event().wait()
         return []
@@ -126,6 +152,13 @@ async def test_check_times_out_and_closes_session(
 async def test_caller_policy_failures_are_not_relabelled_as_disconnects(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify caller policy failures are not relabelled as disconnects.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for caller policy failures are not relabelled as
+            disconnects."""
+
     async def load(session: object) -> list[BaseTool]:
         return [tool("browser_navigate", []), tool("browser_snapshot", [])]
 
@@ -145,6 +178,12 @@ async def test_caller_policy_failures_are_not_relabelled_as_disconnects(
     ],
 )
 async def test_tool_failures_have_safe_codes(failure: Exception, code: str) -> None:
+    """Verify tool failures have safe codes.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for tool failures have safe codes.
+    """
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", [], failure=failure)},
         {"snapshot": "browser_snapshot"},
@@ -156,6 +195,13 @@ async def test_tool_failures_have_safe_codes(failure: Exception, code: str) -> N
 
 
 async def test_cancelled_call_propagates_cancellation() -> None:
+    """Verify cancelled call propagates cancellation.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for cancelled call propagates cancellation.
+    """
+
     async def cancelled(**kwargs: Any) -> str:
         raise asyncio.CancelledError()
 
@@ -181,6 +227,12 @@ async def test_cancelled_call_propagates_cancellation() -> None:
 async def test_browser_failure_causes_are_preserved_without_private_payloads(
     message: str, code: str
 ) -> None:
+    """Verify browser failure causes are preserved without private payloads.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for browser failure causes are preserved without private
+            payloads."""
     session = mcp_client._ConnectedSession(
         {"browser_snapshot": tool("browser_snapshot", [], failure=ToolException(message))},
         {"snapshot": "browser_snapshot"},
@@ -195,6 +247,13 @@ async def test_browser_failure_causes_are_preserved_without_private_payloads(
 async def test_missing_tools_inside_transport_exception_group_keeps_capability_error(
     monkeypatch: pytest.MonkeyPatch, client: FakeClient
 ) -> None:
+    """Verify missing tools inside transport exception group keeps capability error.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for missing tools inside transport exception group keeps
+            capability error."""
+
     async def load(session: object) -> list[BaseTool]:
         raise ExceptionGroup(
             "transport cleanup", [MCPError("missing_browser_tools", "Missing snapshot")]

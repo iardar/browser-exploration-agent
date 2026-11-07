@@ -43,6 +43,12 @@ def search_task(**updates: object) -> BrowserExplorationTask:
 def test_reference_wrappers_authorize_only_the_exact_observed_control(
     tmp_path: Path, reference: str
 ) -> None:
+    """Verify reference wrappers authorize only the exact observed control.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reference wrappers authorize only the exact observed
+            control."""
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)
     name, args = policy.authorize(
@@ -58,6 +64,12 @@ def test_reference_wrappers_authorize_only_the_exact_observed_control(
 def test_selectors_and_unobserved_reference_wrappers_remain_rejected(
     tmp_path: Path, reference: str
 ) -> None:
+    """Verify selectors and unobserved reference wrappers remain rejected.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for selectors and unobserved reference wrappers remain
+            rejected."""
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)
     with pytest.raises(SafetyError, match='bare string "e43"'):
@@ -65,6 +77,12 @@ def test_selectors_and_unobserved_reference_wrappers_remain_rejected(
 
 
 def test_reference_normalization_does_not_bypass_sensitive_field_policy(tmp_path: Path) -> None:
+    """Verify reference normalization does not bypass sensitive field policy.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reference normalization does not bypass sensitive field
+            policy."""
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE.replace('"Գտնել"', '"Password"'))
     with pytest.raises(SafetyError, match="sensitive"):
@@ -74,6 +92,12 @@ def test_reference_normalization_does_not_bypass_sensitive_field_policy(tmp_path
 async def test_rejected_selector_recovers_and_results_are_inspected_before_completion(
     tmp_path: Path,
 ) -> None:
+    """Verify rejected selector recovers and results are inspected before completion.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for rejected selector recovers and results are inspected
+            before completion."""
     session = FakeSession(
         [SEARCH_PAGE, SEARCH_PAGE, RESULTS_LINK, RESULTS_PAGE, "Screenshot of full page captured"]
     )
@@ -138,6 +162,12 @@ async def test_rejected_selector_recovers_and_results_are_inspected_before_compl
 
 
 def test_form_filling_uses_the_same_reference_normalization(tmp_path: Path) -> None:
+    """Verify form filling uses the same reference normalization.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for form filling uses the same reference normalization.
+    """
     policy = SafetyPolicy(search_task(), settings(tmp_path))
     policy.observe(SEARCH_PAGE)
     _, args = policy.authorize(

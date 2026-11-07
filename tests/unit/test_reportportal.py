@@ -61,6 +61,12 @@ class FakePortal:
 
 
 def test_junit_retains_actual_outcomes_and_durations(report: rp.Report) -> None:
+    """Verify junit retains actual outcomes and durations.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for junit retains actual outcomes and durations.
+    """
     assert report.counts == {"total": 4, "passed": 1, "failed": 2, "skipped": 1}
     assert report.status == "FAILED"
     assert report.end - report.start == 2500
@@ -80,6 +86,12 @@ def test_junit_retains_actual_outcomes_and_durations(report: rp.Report) -> None:
     ],
 )
 def test_bad_junit_is_rejected_before_publication(tmp_path: Path, contents: str) -> None:
+    """Verify bad junit is rejected before publication.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for bad junit is rejected before publication.
+    """
     path = tmp_path / "junit.xml"
     path.write_text(contents)
     with pytest.raises(rp.ReportingError, match="no launch was created"):
@@ -89,6 +101,12 @@ def test_bad_junit_is_rejected_before_publication(tmp_path: Path, contents: str)
 def test_environment_overrides_ignored_file_and_project_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify environment overrides ignored file and project defaults.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for environment overrides ignored file and project
+            defaults."""
     (tmp_path / "pyproject.toml").write_text(
         '[tool.pytest.ini_options]\nrp_endpoint="http://default:8080"\nrp_project="default"\n'
     )
@@ -108,6 +126,12 @@ def test_environment_overrides_ignored_file_and_project_defaults(
 def test_effective_pytest_configuration_and_cli_are_honored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify effective pytest configuration and cli are honored.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for effective pytest configuration and cli are honored.
+    """
     (tmp_path / ".env.reportportal").write_text(
         f"RP_API_KEY={KEY}\nRP_ENDPOINT=http://stale-file:8080\n"
     )
@@ -142,6 +166,12 @@ def test_effective_pytest_configuration_and_cli_are_honored(
 def test_unsafe_endpoint_is_rejected_without_echoing_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, endpoint: str
 ) -> None:
+    """Verify unsafe endpoint is rejected without echoing it.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unsafe endpoint is rejected without echoing it.
+    """
     (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
     monkeypatch.setenv("RP_ENDPOINT", endpoint)
     with pytest.raises(rp.ReportingError, match="base URL") as error:
@@ -150,6 +180,12 @@ def test_unsafe_endpoint_is_rejected_without_echoing_it(
 
 
 def test_complete_upload_verifies_remote_counts_and_redacts_key(report: rp.Report) -> None:
+    """Verify complete upload verifies remote counts and redacts key.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for complete upload verifies remote counts and redacts key.
+    """
     handler = FakePortal(report)
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         portal = rp.Portal(SETTINGS, client)
@@ -169,6 +205,12 @@ def test_complete_upload_verifies_remote_counts_and_redacts_key(report: rp.Repor
 
 
 def test_pytest_nonzero_exit_cannot_produce_a_passing_launch(report: rp.Report) -> None:
+    """Verify pytest nonzero exit cannot produce a passing launch.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for pytest nonzero exit cannot produce a passing launch.
+    """
     passing = rp.Report((report.cases[0],), report.start, report.end)
     handler = FakePortal(passing, status="FAILED")
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -180,6 +222,13 @@ def test_pytest_nonzero_exit_cannot_produce_a_passing_launch(report: rp.Report) 
 
 @pytest.mark.parametrize("status", [301, 401, 403, 404, 500])
 def test_api_rejection_cannot_be_reported_as_success(status: int) -> None:
+    """Verify api rejection cannot be reported as success.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for api rejection cannot be reported as success.
+    """
+
     def respond(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, text=KEY, headers={"Location": "http://untrusted.example"})
 
@@ -190,6 +239,13 @@ def test_api_rejection_cannot_be_reported_as_success(status: int) -> None:
 
 
 def test_network_exception_does_not_expose_key_or_request_headers() -> None:
+    """Verify network exception does not expose key or request headers.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for network exception does not expose key or request
+            headers."""
+
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request)
 
@@ -210,6 +266,13 @@ def test_network_exception_does_not_expose_key_or_request_headers() -> None:
 def test_connection_error_explains_cause_without_exposing_secrets(
     cause: OSError, expected: str
 ) -> None:
+    """Verify connection error explains cause without exposing secrets.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for connection error explains cause without exposing
+            secrets."""
+
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request) from cause
 
@@ -220,6 +283,12 @@ def test_connection_error_explains_cause_without_exposing_secrets(
 
 
 def test_html_login_page_is_not_a_successful_api_response() -> None:
+    """Verify html login page is not a successful api response.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for html login page is not a successful api response.
+    """
     with httpx.Client(
         transport=httpx.MockTransport(lambda _: httpx.Response(200, text="<html/>"))
     ) as client:
@@ -228,6 +297,12 @@ def test_html_login_page_is_not_a_successful_api_response() -> None:
 
 
 def test_partial_upload_attempts_cleanup_and_retains_launch_uuid(report: rp.Report) -> None:
+    """Verify partial upload attempts cleanup and retains launch uuid.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for partial upload attempts cleanup and retains launch
+            uuid."""
     handler = FakePortal(report)
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -255,6 +330,12 @@ def test_partial_upload_attempts_cleanup_and_retains_launch_uuid(report: rp.Repo
 def test_finished_status_with_wrong_counts_is_not_verified(
     report: rp.Report, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify finished status with wrong counts is not verified.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for finished status with wrong counts is not verified.
+    """
     handler = FakePortal(report)
     handler.info["statistics"] = {"executions": {"total": 0}}
     ticks = iter([0.0, 0.1, 31.0, 32.0])
@@ -270,6 +351,12 @@ def test_finished_status_with_wrong_counts_is_not_verified(
 def test_async_launch_read_polls_until_status_and_counts_match(
     report: rp.Report, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify async launch read polls until status and counts match.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for async launch read polls until status and counts match.
+    """
     handler = FakePortal(report)
     calls = 0
 
@@ -293,6 +380,12 @@ def test_async_launch_read_polls_until_status_and_counts_match(
     [None, [], {"executions": None}, {"executions": {"total": True}}],
 )
 def test_malformed_remote_counts_cannot_be_verified(report: rp.Report, statistics: Any) -> None:
+    """Verify malformed remote counts cannot be verified.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for malformed remote counts cannot be verified.
+    """
     handler = FakePortal(report)
     handler.info["statistics"] = statistics
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -306,6 +399,12 @@ def test_saved_junit_is_published_without_rerunning_tests(
     monkeypatch: pytest.MonkeyPatch,
     report: rp.Report,
 ) -> None:
+    """Verify saved junit is published without rerunning tests.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for saved junit is published without rerunning tests.
+    """
     path = tmp_path / "junit.xml"
     path.write_text(JUNIT)
     handler = FakePortal(report)
@@ -326,6 +425,12 @@ def test_saved_junit_is_published_without_rerunning_tests(
 def test_test_process_has_no_reportportal_credentials_and_uses_canonical_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify test process has no reportportal credentials and uses canonical config.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for test process has no reportportal credentials and uses
+            canonical config."""
     calls: list[tuple[list[str], dict[str, Any]]] = []
 
     def run(command: list[str], **kwargs: Any) -> SimpleNamespace:
@@ -347,6 +452,12 @@ def test_test_process_has_no_reportportal_credentials_and_uses_canonical_config(
 def test_direct_plugin_reporting_is_rejected_before_unit_execution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, from_environment: bool
 ) -> None:
+    """Verify direct plugin reporting is rejected before unit execution.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for direct plugin reporting is rejected before unit
+            execution."""
     monkeypatch.setenv("PYTEST_ADDOPTS", "--reportportal" if from_environment else "")
     with pytest.raises(rp.ReportingError, match="Omit --reportportal"):
         rp.run_pytest(tmp_path / "junit.xml", [] if from_environment else ["--reportportal"])
@@ -358,6 +469,12 @@ def test_check_command_creates_private_receipt_without_a_launch(
     report: rp.Report,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Verify check command creates private receipt without a launch.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for check command creates private receipt without a launch.
+    """
     handler = FakePortal(report)
     client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(rp, "ROOT", tmp_path)
@@ -376,6 +493,12 @@ def test_check_command_creates_private_receipt_without_a_launch(
 def test_uploader_uses_frozen_controller_settings_without_reloading_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, report: rp.Report
 ) -> None:
+    """Verify uploader uses frozen controller settings without reloading defaults.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for uploader uses frozen controller settings without
+            reloading defaults."""
     handler = FakePortal(report)
     client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(rp, "ROOT", tmp_path)
@@ -391,6 +514,13 @@ def test_uploader_uses_frozen_controller_settings_without_reloading_defaults(
 def test_unreachable_preflight_never_runs_pytest_or_claims_a_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Verify unreachable preflight never runs pytest or claims a launch.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unreachable preflight never runs pytest or claims a
+            launch."""
+
     def respond(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(KEY, request=request)
 

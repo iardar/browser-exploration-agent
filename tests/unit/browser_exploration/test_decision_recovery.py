@@ -15,6 +15,12 @@ from tests.unit.browser_exploration.test_model import make_adapter
 
 
 async def test_invalid_final_report_recovers_without_recapturing_screenshot(tmp_path: Path) -> None:
+    """Verify invalid final report recovers without recapturing screenshot.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid final report recovers without recapturing
+            screenshot."""
     connection = FakeConnection()
     connection.session.capabilities["screenshot"] = "browser_take_screenshot"
     connection.session.tools["browser_take_screenshot"] = fake_tool("browser_take_screenshot")
@@ -58,6 +64,12 @@ async def test_invalid_final_report_recovers_without_recapturing_screenshot(tmp_
 async def test_invalid_decision_retries_respect_budgets_and_stop_after_two_retries(
     tmp_path: Path, budget: int, expected_calls: int
 ) -> None:
+    """Verify invalid decision retries respect budgets and stop after two retries.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid decision retries respect budgets and stop after
+            two retries."""
     model = FakeModel([ModelError("llm_validation_error", "Invalid decision") for _ in range(5)])
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=FakeConnection(), model=model
@@ -71,6 +83,12 @@ async def test_invalid_decision_retries_respect_budgets_and_stop_after_two_retri
 async def test_schema_diagnostics_preserve_paths_and_types_without_values_or_exception_text() -> (
     None
 ):
+    """Verify schema diagnostics preserve paths and types without values or exception text.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for schema diagnostics preserve paths and types without
+            values or exception text."""
     with pytest.raises(ValidationError) as failure:
         Decision.model_validate(
             {
@@ -97,6 +115,12 @@ async def test_schema_diagnostics_preserve_paths_and_types_without_values_or_exc
 
 
 async def test_valid_decision_retains_provider_model_metadata() -> None:
+    """Verify valid decision retains provider model metadata.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for valid decision retains provider model metadata.
+    """
     adapter, _, _ = make_adapter(
         {
             "raw": AIMessage(content="", response_metadata={"model_name": "actual-model"}),

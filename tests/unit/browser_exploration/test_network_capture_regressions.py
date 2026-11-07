@@ -20,6 +20,12 @@ from tests.unit.browser_exploration.fakes import FakeModel
 
 @pytest.mark.parametrize("seed", range(8))
 def test_summary_preserves_counts_and_failure_order_under_request_permutations(seed: int) -> None:
+    """Verify summary preserves counts and failure order under request permutations.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for summary preserves counts and failure order under
+            request permutations."""
     outcomes = ["200"] * 24 + ["500", "404", "429", "503", "401", "FAILED", None]
     requests = list(enumerate(outcomes))
     random.Random(seed).shuffle(requests)
@@ -48,6 +54,12 @@ def test_summary_preserves_counts_and_failure_order_under_request_permutations(s
 
 
 def test_unknown_large_response_stays_bounded_and_does_not_claim_zero_failures() -> None:
+    """Verify unknown large response stays bounded and does not claim zero failures.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unknown large response stays bounded and does not claim
+            zero failures."""
     text = "Unrecognized format password=private-canary\n" + "unknown payload\n" * 2_000
     summary = summarize_network_observation(text, 6_000)
     assert len(summary) <= 1_000
@@ -60,6 +72,12 @@ def test_unknown_large_response_stays_bounded_and_does_not_claim_zero_failures()
 async def test_real_adapter_payload_contains_summary_while_raw_listing_stays_in_evidence(
     tmp_path: Path,
 ) -> None:
+    """Verify real adapter payload contains summary while raw listing stays in evidence.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for real adapter payload contains summary while raw listing
+            stays in evidence."""
     raw = AIMessage(
         content="", usage_metadata={"input_tokens": 10, "output_tokens": 3, "total_tokens": 13}
     )
@@ -130,6 +148,12 @@ async def valid_capture(tmp_path: Path) -> Path:
 async def test_grader_cannot_pass_impossible_or_inconsistent_run_metadata(
     valid_capture: Path, fault: str, tmp_path: Path
 ) -> None:
+    """Verify grader cannot pass impossible or inconsistent run metadata.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for grader cannot pass impossible or inconsistent run
+            metadata."""
     result_path = valid_capture / "result.json"
     trajectory_path = valid_capture / "trajectory.jsonl"
     result = json.loads(result_path.read_text())
@@ -173,6 +197,12 @@ async def test_grader_cannot_pass_impossible_or_inconsistent_run_metadata(
 
 @pytest.mark.parametrize("invalid", [[], None, {"status": "completed"}])
 def test_grader_rejects_malformed_top_level_result(tmp_path: Path, invalid: Any) -> None:
+    """Verify grader rejects malformed top level result.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for grader rejects malformed top level result.
+    """
     (tmp_path / "result.json").write_text(json.dumps(invalid))
     (tmp_path / "run_config.json").write_text("{}")
     (tmp_path / "trajectory.jsonl").write_text("")

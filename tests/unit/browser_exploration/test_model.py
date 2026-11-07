@@ -18,11 +18,23 @@ from browser_exploration.model import Action, Decision, ModelError, OpenAIDecisi
     "payload", [{}, {"done": True, "action": {"name": "browser_snapshot"}}, {"done": False}]
 )
 def test_decision_requires_exactly_one_action_or_completion(payload: dict[str, Any]) -> None:
+    """Verify decision requires exactly one action or completion.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for decision requires exactly one action or completion.
+    """
     with pytest.raises(ValidationError, match="Choose one action"):
         Decision.model_validate(payload)
 
 
 def test_decision_rejects_unknown_fields_and_large_arguments() -> None:
+    """Verify decision rejects unknown fields and large arguments.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for decision rejects unknown fields and large arguments.
+    """
     with pytest.raises(ValidationError):
         Decision.model_validate({"done": True, "new_max_steps": 1000})
     with pytest.raises(ValidationError, match="8192"):
@@ -45,6 +57,12 @@ def make_adapter(
 
 
 async def test_provider_usage_and_tools_are_forwarded_without_model_history_growth() -> None:
+    """Verify provider usage and tools are forwarded without model history growth.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for provider usage and tools are forwarded without model
+            history growth."""
     raw = AIMessage(
         content="",
         usage_metadata={"input_tokens": 123, "output_tokens": 45, "total_tokens": 168},
@@ -68,6 +86,12 @@ async def test_provider_usage_and_tools_are_forwarded_without_model_history_grow
 
 
 async def test_validation_failure_preserves_reported_usage() -> None:
+    """Verify validation failure preserves reported usage.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for validation failure preserves reported usage.
+    """
     adapter, _, _ = make_adapter(
         {
             "raw": AIMessage(
@@ -86,6 +110,12 @@ async def test_validation_failure_preserves_reported_usage() -> None:
 
 
 async def test_provider_api_failures_are_sanitized() -> None:
+    """Verify provider api failures are sanitized.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for provider api failures are sanitized.
+    """
     adapter, _, _ = make_adapter(error=RuntimeError("Authorization: Bearer secret"))
     with pytest.raises(ModelError) as failure:
         await adapter.decide([], [])
@@ -107,6 +137,12 @@ async def test_provider_api_failures_are_sanitized() -> None:
 async def test_provider_rejection_retains_safe_status_code_and_parameter(
     status: int, code: str, parameter: str | None, wrapped: bool
 ) -> None:
+    """Verify provider rejection retains safe status code and parameter.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for provider rejection retains safe status code and
+            parameter."""
     request = httpx.Request(
         "POST",
         "https://api.openai.com/v1/chat/completions",
@@ -136,6 +172,12 @@ async def test_provider_rejection_retains_safe_status_code_and_parameter(
 
 
 async def test_wrapped_connection_error_is_diagnosed_without_the_original_message() -> None:
+    """Verify wrapped connection error is diagnosed without the original message.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for wrapped connection error is diagnosed without the
+            original message."""
     wrapper = RuntimeError("private-wrapper-message")
     wrapper.__cause__ = APIConnectionError(
         message="private-provider-message",
@@ -150,12 +192,24 @@ async def test_wrapped_connection_error_is_diagnosed_without_the_original_messag
 
 
 async def test_unmeasurable_usage_is_none() -> None:
+    """Verify unmeasurable usage is none.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unmeasurable usage is none.
+    """
     adapter, _, _ = make_adapter({"raw": AIMessage(content=""), "parsed": Decision(done=True)})
     result = await adapter.decide([], [])
     assert result.usage is None
 
 
 async def test_legacy_provider_token_usage_is_supported() -> None:
+    """Verify legacy provider token usage is supported.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for legacy provider token usage is supported.
+    """
     adapter, _, _ = make_adapter(
         {
             "raw": AIMessage(
@@ -176,12 +230,24 @@ async def test_legacy_provider_token_usage_is_supported() -> None:
 
 
 async def test_cancellation_propagates_to_the_run_owner() -> None:
+    """Verify cancellation propagates to the run owner.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for cancellation propagates to the run owner.
+    """
     adapter, _, _ = make_adapter(error=asyncio.CancelledError())
     with pytest.raises(asyncio.CancelledError):
         await adapter.decide([], [])
 
 
 async def test_oversized_tool_catalog_fails_before_provider_request() -> None:
+    """Verify oversized tool catalog fails before provider request.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for oversized tool catalog fails before provider request.
+    """
     adapter, invoke, _ = make_adapter()
     with pytest.raises(ModelError, match="schemas exceed"):
         await adapter.decide([], [{"description": "x" * 33_000}])
@@ -189,6 +255,12 @@ async def test_oversized_tool_catalog_fails_before_provider_request() -> None:
 
 
 def test_constructor_configuration_errors_are_sanitized() -> None:
+    """Verify constructor configuration errors are sanitized.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for constructor configuration errors are sanitized.
+    """
     with patch(
         "browser_exploration.model.ChatOpenAI",
         side_effect=ValueError("secret credential value"),

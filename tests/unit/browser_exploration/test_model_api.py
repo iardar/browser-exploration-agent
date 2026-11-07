@@ -38,6 +38,12 @@ from tests.unit.browser_exploration.fakes import FakeConnection, FakeModel
     ],
 )
 def test_model_defaults_to_the_expected_api_without_renaming_it(model: str, api: str) -> None:
+    """Verify model defaults to the expected api without renaming it.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model defaults to the expected api without renaming it.
+    """
     settings = Settings(model=model)
     assert settings.model_api == "auto"
     assert settings.effective_model_api == api
@@ -46,6 +52,12 @@ def test_model_defaults_to_the_expected_api_without_renaming_it(model: str, api:
 
 @pytest.mark.parametrize("api", ["responses", "chat_completions"])
 def test_explicit_api_overrides_auto_selection(api: str) -> None:
+    """Verify explicit api overrides auto selection.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for explicit api overrides auto selection.
+    """
     settings = Settings.model_validate({"model": "gpt-5.6-sol", "model_api": api})
     assert settings.effective_model_api == api
 
@@ -54,6 +66,12 @@ def test_explicit_api_overrides_auto_selection(api: str) -> None:
 def test_model_check_uses_environment_or_cli_api(
     monkeypatch: pytest.MonkeyPatch, override: str | None
 ) -> None:
+    """Verify model check uses environment or cli api.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model check uses environment or cli api.
+    """
     selected: list[Settings] = []
 
     def factory(settings: Settings) -> FakeModel:
@@ -73,6 +91,12 @@ def test_model_check_uses_environment_or_cli_api(
 
 
 def test_invalid_api_does_not_leak_rejected_values() -> None:
+    """Verify invalid api does not leak rejected values.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid api does not leak rejected values.
+    """
     result = CliRunner().invoke(cli.app, ["check-model", "--model-api", "private-value"])
     assert result.exit_code == 2
     assert "private-value" not in result.output
@@ -82,6 +106,13 @@ def test_invalid_api_does_not_leak_rejected_values() -> None:
 def test_run_reports_and_persists_the_explicit_api(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify run reports and persists the explicit api.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for run reports and persists the explicit api.
+    """
+
     class CapturingExplorer:
         def __init__(self, settings: Settings) -> None:
             self.delegate = AutonomousBrowserExplorer(
@@ -121,6 +152,12 @@ def test_run_reports_and_persists_the_explicit_api(
 async def test_provider_rejection_records_api_and_never_retries_or_switches_model(
     api: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify provider rejection records api and never retries or switches model.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for provider rejection records api and never retries or
+            switches model."""
     captured: list[tuple[str, dict[str, Any]]] = []
 
     async def reject(request: httpx.Request) -> httpx.Response:

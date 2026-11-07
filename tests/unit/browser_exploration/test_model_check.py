@@ -16,6 +16,12 @@ from tests.unit.browser_exploration.fakes import FakeModel
 def test_model_check_reports_selected_and_provider_models_without_a_browser(
     monkeypatch: pytest.MonkeyPatch, override: str | None
 ) -> None:
+    """Verify model check reports selected and provider models without a browser.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model check reports selected and provider models
+            without a browser."""
     selected: list[str] = []
     fake = FakeModel([DecisionResponse(Decision(done=True), provider_model="provider-model")])
 
@@ -43,6 +49,12 @@ def test_model_check_reports_selected_and_provider_models_without_a_browser(
 def test_model_check_exposes_provider_diagnostics_and_does_not_fall_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify model check exposes provider diagnostics and does not fall back.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model check exposes provider diagnostics and does not
+            fall back."""
     selected: list[str] = []
 
     def model_factory(settings: Settings) -> FakeModel:
@@ -69,6 +81,12 @@ def test_model_check_exposes_provider_diagnostics_and_does_not_fall_back(
 
 
 def test_model_check_deadline_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify model check deadline is bounded.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model check deadline is bounded.
+    """
     monkeypatch.setattr(cli, "OpenAIDecisionModel", lambda _: FakeModel(blocked=True))
     result = CliRunner().invoke(cli.app, ["check-model", "--timeout-seconds", "1"])
     assert result.exit_code == 1

@@ -41,6 +41,12 @@ def task() -> BrowserExplorationTask:
 
 @pytest.mark.parametrize("same_url", [False, True])
 def test_historical_references_are_removed_without_losing_page_facts(same_url: bool) -> None:
+    """Verify historical references are removed without losing page facts.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for historical references are removed without losing page
+            facts."""
     first = observed("old", page(task().url, "f1e44", "Old article"))
     url = task().url if same_url else "https://example.com/details"
     latest = observed("latest", page(url, "f2e70", "Current article"), url=url)
@@ -68,6 +74,12 @@ def test_historical_references_are_removed_without_losing_page_facts(same_url: b
 
 
 def test_reused_identifier_is_kept_only_on_its_latest_snapshot() -> None:
+    """Verify reused identifier is kept only on its latest snapshot.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reused identifier is kept only on its latest snapshot.
+    """
     old = observed("old", page(task().url, "e43", "Earlier label"))
     latest = observed("latest", page(task().url, "e43", "Current label"))
     content = str(
@@ -92,6 +104,12 @@ def test_reused_identifier_is_kept_only_on_its_latest_snapshot() -> None:
 def test_unknown_or_expired_reference_origin_does_not_make_history_actionable(
     references: set[str], owner: str | None
 ) -> None:
+    """Verify unknown or expired reference origin does not make history actionable.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unknown or expired reference origin does not make
+            history actionable."""
     old = observed("old", page(task().url, "f2e70"))
     content = str(
         ContextBuilder()
@@ -112,6 +130,12 @@ def test_unknown_or_expired_reference_origin_does_not_make_history_actionable(
 
 
 def test_reference_filter_does_not_correct_or_invent_identifiers() -> None:
+    """Verify reference filter does not correct or invent identifiers.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reference filter does not correct or invent
+            identifiers."""
     latest = observed("latest", page(task().url, "e1e44"))
     content = str(
         ContextBuilder()
@@ -133,6 +157,12 @@ def test_reference_filter_does_not_correct_or_invent_identifiers() -> None:
 
 @pytest.mark.parametrize("name", ["browser_network_requests", "browser_console_messages"])
 def test_diagnostic_text_is_not_rewritten_as_a_page_reference(name: str) -> None:
+    """Verify diagnostic text is not rewritten as a page reference.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for diagnostic text is not rewritten as a page reference.
+    """
     item = observed("logs", "Diagnostic payload includes literal [ref=trace]")
     item.action_name = name
     content = str(
@@ -153,6 +183,12 @@ def test_diagnostic_text_is_not_rewritten_as_a_page_reference(name: str) -> None
 
 
 def test_objective_and_policy_restrictions_remain_complete() -> None:
+    """Verify objective and policy restrictions remain complete.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for objective and policy restrictions remain complete.
+    """
     current_task = task().model_copy(
         update={
             "objective": "Do not act on [ref=old]. Do not authenticate or mutate data.",
@@ -179,6 +215,12 @@ def test_objective_and_policy_restrictions_remain_complete() -> None:
 
 
 def test_reference_revision_changes_only_when_page_reference_state_is_replaced() -> None:
+    """Verify reference revision changes only when page reference state is replaced.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for reference revision changes only when page reference
+            state is replaced."""
     policy = SafetyPolicy(task(), Settings(network_restricted=True))
     assert policy.reference_revision == 0
     policy.observe(page(task().url, "f1e44"))
@@ -229,10 +271,22 @@ async def capture_navigation(output_dir: Path) -> Path:
 async def test_graph_uses_current_reference_owner_and_keeps_original_evidence(
     tmp_path: Path,
 ) -> None:
+    """Verify graph uses current reference owner and keeps original evidence.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for graph uses current reference owner and keeps original
+            evidence."""
     await capture_navigation(tmp_path)
 
 
 async def test_snapshot_catalogue_matches_executable_page_state(tmp_path: Path) -> None:
+    """Verify snapshot catalogue matches executable page state.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for snapshot catalogue matches executable page state.
+    """
     initial = page(task().url, "f1e44")
     final = page("https://example.com/details", "f2e70")
     session = FakeSession([initial, initial, final, final])
@@ -259,6 +313,12 @@ async def test_snapshot_catalogue_matches_executable_page_state(tmp_path: Path) 
 
 
 async def test_hidden_snapshot_still_cannot_bypass_the_executor_guard(tmp_path: Path) -> None:
+    """Verify hidden snapshot still cannot bypass the executor guard.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for hidden snapshot still cannot bypass the executor guard.
+    """
     initial = page(task().url, "f1e44")
     session = FakeSession([initial, initial])
     model = FakeModel(
@@ -280,6 +340,12 @@ async def test_hidden_snapshot_still_cannot_bypass_the_executor_guard(tmp_path: 
 async def test_audit_measures_reference_improvement_and_does_not_modify_runs(
     tmp_path: Path,
 ) -> None:
+    """Verify audit measures reference improvement and does not modify runs.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for audit measures reference improvement and does not
+            modify runs."""
     await capture_navigation(tmp_path)
     original = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
     report = audit_runs(tmp_path)
@@ -293,12 +359,24 @@ async def test_audit_measures_reference_improvement_and_does_not_modify_runs(
 
 
 def test_empty_audit_does_not_manufacture_perfect_scores(tmp_path: Path) -> None:
+    """Verify empty audit does not manufacture perfect scores.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for empty audit does not manufacture perfect scores.
+    """
     report = audit_runs(tmp_path)
     assert report["run_count"] == 0
     assert report["reference_context_benchmark"]["filtered_current_reference_precision"] is None
 
 
 def test_audit_reports_incomplete_and_corrupted_runs_without_crashing(tmp_path: Path) -> None:
+    """Verify audit reports incomplete and corrupted runs without crashing.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for audit reports incomplete and corrupted runs without
+            crashing."""
     incomplete = tmp_path / "incomplete"
     incomplete.mkdir()
     (incomplete / "trajectory.jsonl").write_text("")
@@ -312,6 +390,12 @@ def test_audit_reports_incomplete_and_corrupted_runs_without_crashing(tmp_path: 
 
 
 def test_benchmark_preserves_newest_refs_when_historical_ids_are_removed() -> None:
+    """Verify benchmark preserves newest refs when historical ids are removed.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for benchmark preserves newest refs when historical ids are
+            removed."""
     first = observed("first", page(task().url, "f1e44"))
     latest = observed("latest", page(task().url, "f2e70"))
     raw = {
@@ -324,6 +408,12 @@ def test_benchmark_preserves_newest_refs_when_historical_ids_are_removed() -> No
 
 
 async def test_audit_marks_malformed_log_records_and_continues(tmp_path: Path) -> None:
+    """Verify audit marks malformed log records and continues.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for audit marks malformed log records and continues.
+    """
     directory = await capture_navigation(tmp_path)
     with (directory / "decisions.jsonl").open("a") as handle:
         handle.write("{broken JSON}\n")
@@ -339,6 +429,12 @@ def test_audit_cli_cannot_overwrite_an_original_run_artifact(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify audit cli cannot overwrite an original run artifact.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for audit cli cannot overwrite an original run artifact.
+    """
     original = tmp_path / "result.json"
     original.write_text('{"important": "source artifact"}')
     before = original.read_bytes()
@@ -363,6 +459,12 @@ def test_audit_cli_writes_private_report_with_unknown_empty_scores(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Verify audit cli writes private report with unknown empty scores.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for audit cli writes private report with unknown empty
+            scores."""
     output = tmp_path / "quality/audit.json"
     monkeypatch.setattr(
         "sys.argv",

@@ -29,6 +29,12 @@ def settings(path: Path, **updates: Any) -> Settings:
 
 
 async def test_oversized_authoritative_context_is_blocked_before_connection(tmp_path: Path) -> None:
+    """Verify oversized authoritative context is blocked before connection.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for oversized authoritative context is blocked before
+            connection."""
     connection = FakeConnection()
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=connection, model=FakeModel()
@@ -45,6 +51,12 @@ async def test_oversized_authoritative_context_is_blocked_before_connection(tmp_
 
 
 async def test_snapshot_without_page_content_does_not_become_success(tmp_path: Path) -> None:
+    """Verify snapshot without page content does not become success.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for snapshot without page content does not become success.
+    """
     session = FakeSession(
         [snapshot(), [{"type": "text", "text": "- Page URL: https://example.com/"}]]
     )
@@ -59,6 +71,12 @@ async def test_snapshot_without_page_content_does_not_become_success(tmp_path: P
 async def test_real_graph_completes_autonomous_action_and_persists_one_session(
     tmp_path: Path,
 ) -> None:
+    """Verify real graph completes autonomous action and persists one session.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for real graph completes autonomous action and persists one
+            session."""
     connection = FakeConnection()
     model = FakeModel(
         [
@@ -109,6 +127,12 @@ async def test_real_graph_completes_autonomous_action_and_persists_one_session(
 async def test_graph_has_three_stages_and_conditional_exploration_loop(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify graph has three stages and conditional exploration loop.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for graph has three stages and conditional exploration
+            loop."""
     captured: list[Any] = []
 
     def capture(nodes: ExplorationNodes) -> Any:
@@ -142,6 +166,12 @@ async def test_graph_has_three_stages_and_conditional_exploration_loop(
 async def test_context_history_stays_bounded_but_trajectory_remains_complete(
     tmp_path: Path,
 ) -> None:
+    """Verify context history stays bounded but trajectory remains complete.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for context history stays bounded but trajectory remains
+            complete."""
     model = FakeModel(
         [
             DecisionResponse(
@@ -174,6 +204,13 @@ async def test_context_history_stays_bounded_but_trajectory_remains_complete(
 async def test_confirmed_findings_require_known_successful_evidence_and_reproduction(
     tmp_path: Path,
 ) -> None:
+    """Verify confirmed findings require known successful evidence and reproduction.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for confirmed findings require known successful evidence
+            and reproduction."""
+
     def finding(identifier: str, evidence_id: str, steps: list[str]) -> BrowserFinding:
         return BrowserFinding(
             id=identifier,
@@ -230,6 +267,12 @@ async def test_confirmed_findings_require_known_successful_evidence_and_reproduc
 async def test_tool_failure_is_recorded_and_does_not_become_a_finding(
     tmp_path: Path, error: Exception
 ) -> None:
+    """Verify tool failure is recorded and does not become a finding.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for tool failure is recorded and does not become a finding.
+    """
     model = FakeModel()
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=FakeConnection(FakeSession([error])), model=model
@@ -262,6 +305,12 @@ async def test_tool_failure_is_recorded_and_does_not_become_a_finding(
 async def test_unusable_or_unsafe_browser_observation_is_terminal(
     tmp_path: Path, raw: Any, status: str, code: str
 ) -> None:
+    """Verify unusable or unsafe browser observation is terminal.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unusable or unsafe browser observation is terminal.
+    """
     result = await AutonomousBrowserExplorer(
         settings(tmp_path), connection=FakeConnection(FakeSession([raw])), model=FakeModel()
     ).explore(task())
@@ -272,6 +321,12 @@ async def test_unusable_or_unsafe_browser_observation_is_terminal(
 
 
 async def test_mcp_unavailable_produces_artifacts_without_browser_calls(tmp_path: Path) -> None:
+    """Verify mcp unavailable produces artifacts without browser calls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for mcp unavailable produces artifacts without browser
+            calls."""
     result = await AutonomousBrowserExplorer(
         settings(tmp_path),
         connection=FakeConnection(error=MCPError("mcp_unavailable", "Cannot connect")),
@@ -288,6 +343,12 @@ async def test_mcp_unavailable_produces_artifacts_without_browser_calls(tmp_path
 async def test_model_failure_keeps_actual_status_and_provider_usage(
     tmp_path: Path, code: str
 ) -> None:
+    """Verify model failure keeps actual status and provider usage.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model failure keeps actual status and provider usage.
+    """
     result = await AutonomousBrowserExplorer(
         settings(tmp_path),
         connection=FakeConnection(),
@@ -317,6 +378,12 @@ async def test_model_failure_keeps_actual_status_and_provider_usage(
 async def test_policy_blocks_before_connection_and_retries_denied_model_actions(
     tmp_path: Path,
 ) -> None:
+    """Verify policy blocks before connection and retries denied model actions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for policy blocks before connection and retries denied
+            model actions."""
     connection = FakeConnection()
     result = await AutonomousBrowserExplorer(
         Settings(output_dir=tmp_path), connection=connection, model=FakeModel()
@@ -348,6 +415,12 @@ async def test_policy_blocks_before_connection_and_retries_denied_model_actions(
 
 
 def test_binary_evidence_is_never_in_model_observation_text() -> None:
+    """Verify binary evidence is never in model observation text.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for binary evidence is never in model observation text.
+    """
     text = observation_text(
         [
             {"type": "text", "text": "Visible page"},
@@ -364,6 +437,12 @@ def test_binary_evidence_is_never_in_model_observation_text() -> None:
 
 
 async def test_malformed_injected_decision_is_validated_before_executing(tmp_path: Path) -> None:
+    """Verify malformed injected decision is validated before executing.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for malformed injected decision is validated before
+            executing."""
     invalid = Decision.model_construct(done=True, action=Action(name="browser_snapshot"))
     result = await AutonomousBrowserExplorer(
         settings(tmp_path),
@@ -377,6 +456,12 @@ async def test_malformed_injected_decision_is_validated_before_executing(tmp_pat
 
 
 async def test_session_disconnect_during_cleanup_does_not_report_completion(tmp_path: Path) -> None:
+    """Verify session disconnect during cleanup does not report completion.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for session disconnect during cleanup does not report
+            completion."""
     result = await AutonomousBrowserExplorer(
         settings(tmp_path),
         connection=FakeConnection(close_error=MCPError("mcp_disconnected", "Session closed")),
@@ -389,6 +474,12 @@ async def test_session_disconnect_during_cleanup_does_not_report_completion(tmp_
 
 
 async def test_report_tokens_use_only_usage_from_all_decisions(tmp_path: Path) -> None:
+    """Verify report tokens use only usage from all decisions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for report tokens use only usage from all decisions.
+    """
     model = FakeModel(
         [
             DecisionResponse(
@@ -418,6 +509,12 @@ async def test_report_tokens_use_only_usage_from_all_decisions(tmp_path: Path) -
 
 
 async def test_raw_evidence_opt_in_keeps_reproduction_payloads(tmp_path: Path) -> None:
+    """Verify raw evidence opt in keeps reproduction payloads.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for raw evidence opt in keeps reproduction payloads.
+    """
     result = await AutonomousBrowserExplorer(
         settings(tmp_path, retain_raw_evidence=True),
         connection=FakeConnection(),

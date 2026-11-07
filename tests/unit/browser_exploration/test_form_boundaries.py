@@ -48,6 +48,12 @@ def form_schema() -> dict[str, Any]:
     ],
 )
 def test_malformed_form_schemas_are_excluded_from_discovery(schema: Any) -> None:
+    """Verify malformed form schemas are excluded from discovery.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for malformed form schemas are excluded from discovery.
+    """
     form = fake_tool("browser_fill_form", {"fields": schema})
     selected, capabilities = discovered_tools([*required_tools(), form])
     assert "fill_form" not in capabilities and form.name not in selected
@@ -56,6 +62,12 @@ def test_malformed_form_schemas_are_excluded_from_discovery(schema: Any) -> None
 @pytest.mark.parametrize("field", ["target", "name", "type", "value"])
 @pytest.mark.parametrize("bad_type", [None, {"type": "integer"}])
 def test_each_form_property_requires_a_string_schema(field: str, bad_type: Any) -> None:
+    """Verify each form property requires a string schema.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for each form property requires a string schema.
+    """
     schema = form_schema()
     schema["items"]["properties"][field] = bad_type
     _, capabilities = discovered_tools(
@@ -65,6 +77,12 @@ def test_each_form_property_requires_a_string_schema(field: str, bad_type: Any) 
 
 
 def test_form_catalog_describes_nested_targets_without_modifying_server_schema() -> None:
+    """Verify form catalog describes nested targets without modifying server schema.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for form catalog describes nested targets without modifying
+            server schema."""
     schema = form_schema()
     schema["items"]["properties"]["target"]["description"] = "CSS selector"
     original = copy.deepcopy(schema)
@@ -83,6 +101,12 @@ def test_form_catalog_describes_nested_targets_without_modifying_server_schema()
 
 @pytest.mark.parametrize("text_schema", [None, {"type": "integer"}])
 def test_typing_tool_needs_text_and_reference_strings(text_schema: Any) -> None:
+    """Verify typing tool needs text and reference strings.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for typing tool needs text and reference strings.
+    """
     tool = fake_tool("browser_type", {"ref": {"type": "string"}, "text": text_schema})
     _, capabilities = discovered_tools([*required_tools(), tool])
     assert "type" not in capabilities
@@ -114,6 +138,12 @@ def test_mutation_permission_does_not_implicitly_allow_form_input(
     capability: str,
     arguments: dict[str, Any],
 ) -> None:
+    """Verify mutation permission does not implicitly allow form input.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for mutation permission does not implicitly allow form
+            input."""
     with pytest.raises(SafetyError, match="allow_form_input"):
         policy(input_allowed=False).authorize(CAPABILITIES[capability], arguments, CAPABILITIES)
 
@@ -122,6 +152,12 @@ def test_mutation_permission_does_not_implicitly_allow_form_input(
     "fields", [None, {}, [], [None], [{"target": "q", "file": "secret"}], [{}] * 21]
 )
 def test_form_field_container_and_keys_are_validated(fields: Any) -> None:
+    """Verify form field container and keys are validated.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for form field container and keys are validated.
+    """
     with pytest.raises(SafetyError, match="fields|arguments"):
         policy().authorize("browser_fill_form", {"fields": fields}, CAPABILITIES)
 
@@ -141,6 +177,12 @@ def test_form_values_reject_sensitive_invalid_and_oversized_input(
     field: dict[str, Any],
     reason: str,
 ) -> None:
+    """Verify form values reject sensitive invalid and oversized input.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for form values reject sensitive invalid and oversized
+            input."""
     fields = [{"target": "q", "type": "textbox", "value": "query", **field}]
     original = copy.deepcopy(fields)
     with pytest.raises(SafetyError, match=reason):
@@ -149,6 +191,12 @@ def test_form_values_reject_sensitive_invalid_and_oversized_input(
 
 
 def test_maximum_form_size_preserves_inputs_and_uses_observed_names() -> None:
+    """Verify maximum form size preserves inputs and uses observed names.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for maximum form size preserves inputs and uses observed
+            names."""
     fields = [
         {
             "target": "q",
@@ -188,16 +236,34 @@ def test_maximum_form_size_preserves_inputs_and_uses_observed_names() -> None:
 def test_typing_keeps_value_and_submission_restrictions(
     options: dict[str, Any], reason: str
 ) -> None:
+    """Verify typing keeps value and submission restrictions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for typing keeps value and submission restrictions.
+    """
     with pytest.raises(SafetyError, match=reason):
         policy().authorize("browser_type", {"ref": "q", "text": "query", **options}, CAPABILITIES)
 
 
 def test_modified_clicks_are_rejected_even_with_mutation_permission() -> None:
+    """Verify modified clicks are rejected even with mutation permission.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for modified clicks are rejected even with mutation
+            permission."""
     with pytest.raises(SafetyError, match="Modified clicks"):
         policy().authorize("browser_click", {"ref": "go", "modifiers": ["Control"]}, CAPABILITIES)
 
 
 def test_repeated_static_omission_notes_are_not_double_counted() -> None:
+    """Verify repeated static omission notes are not double counted.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for repeated static omission notes are not double counted.
+    """
     note = "Note: 21 static requests not shown"
     summary = summarize_network_observation(
         f"[GET] https://example.com/ => [200]\n{note}\n{note}",

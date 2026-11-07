@@ -27,7 +27,12 @@ pytestmark = [
 
 
 async def test_real_context_isolation_and_case_readiness(request: pytest.FixtureRequest) -> None:
-    """Probe storage/history, cancel a measured trial, then grade all cases in fresh sessions."""
+    """Probe storage/history, cancel a measured trial, then grade all cases in fresh sessions.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for real context isolation and case readiness.
+    """
     assert request.config.getoption("numprocesses", default=0) == 0, "Run serially with -n 0"
     settings = Settings(
         model="scripted-isolation-check",

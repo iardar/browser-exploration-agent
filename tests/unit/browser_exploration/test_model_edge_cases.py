@@ -15,6 +15,12 @@ from tests.unit.browser_exploration.test_model import make_adapter
 
 
 def test_structured_output_configuration_errors_are_sanitized() -> None:
+    """Verify structured output configuration errors are sanitized.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for structured output configuration errors are sanitized.
+    """
     chat = MagicMock()
     chat.return_value.with_structured_output.side_effect = ValueError("private-credential-value")
     with patch("browser_exploration.model.ChatOpenAI", chat):
@@ -33,6 +39,12 @@ def test_structured_output_configuration_errors_are_sanitized() -> None:
 async def test_non_mapping_provider_response_is_a_structured_validation_failure(
     response: Any,
 ) -> None:
+    """Verify non mapping provider response is a structured validation failure.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for non mapping provider response is a structured
+            validation failure."""
     adapter, invoke, _ = make_adapter(response)
     with pytest.raises(ModelError) as failure:
         await adapter.decide([], [])
@@ -45,6 +57,12 @@ async def test_non_mapping_provider_response_is_a_structured_validation_failure(
 async def test_non_decision_parsed_output_preserves_usage_but_not_provider_payload(
     parsed: Any,
 ) -> None:
+    """Verify non decision parsed output preserves usage but not provider payload.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for non decision parsed output preserves usage but not
+            provider payload."""
     usage = {"input_tokens": 20, "output_tokens": 7, "total_tokens": 27}
     adapter, _, _ = make_adapter(
         {"parsed": parsed, "raw": AIMessage(content="", usage_metadata=usage)}
@@ -57,6 +75,12 @@ async def test_non_decision_parsed_output_preserves_usage_but_not_provider_paylo
 
 
 async def test_non_ai_message_raw_output_does_not_invent_usage() -> None:
+    """Verify non ai message raw output does not invent usage.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for non ai message raw output does not invent usage.
+    """
     adapter, _, _ = make_adapter({"parsed": Decision(done=True), "raw": {"total_tokens": 20}})
     result = await adapter.decide([], [])
     assert result.decision.done
@@ -73,6 +97,12 @@ async def test_non_ai_message_raw_output_does_not_invent_usage() -> None:
     ],
 )
 async def test_incomplete_or_non_integer_legacy_usage_is_unknown(usage: dict[str, Any]) -> None:
+    """Verify incomplete or non integer legacy usage is unknown.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for incomplete or non integer legacy usage is unknown.
+    """
     adapter, _, _ = make_adapter(
         {
             "parsed": Decision(done=True),
@@ -84,6 +114,12 @@ async def test_incomplete_or_non_integer_legacy_usage_is_unknown(usage: dict[str
 
 
 async def test_normalized_usage_takes_precedence_over_legacy_metadata() -> None:
+    """Verify normalized usage takes precedence over legacy metadata.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for normalized usage takes precedence over legacy metadata.
+    """
     normalized = {"input_tokens": 8, "output_tokens": 2, "total_tokens": 10}
     adapter, _, _ = make_adapter(
         {
@@ -105,6 +141,12 @@ async def test_normalized_usage_takes_precedence_over_legacy_metadata() -> None:
 
 
 def test_question_length_and_count_have_independent_upper_bounds() -> None:
+    """Verify question length and count have independent upper bounds.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for question length and count have independent upper
+            bounds."""
     assert (
         len(Decision(done=True, unresolved_questions=["x" * 2000] * 30).unresolved_questions) == 30
     )
@@ -116,11 +158,23 @@ def test_question_length_and_count_have_independent_upper_bounds() -> None:
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 def test_non_finite_action_values_are_not_valid_json(value: float) -> None:
+    """Verify non finite action values are not valid json.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for non finite action values are not valid json.
+    """
     with pytest.raises(ValidationError, match="JSON-compatible"):
         Action(name="browser_navigate", arguments={"nested": {"value": value}})
 
 
 def test_action_json_size_boundary_includes_structure_and_whitespace() -> None:
+    """Verify action json size boundary includes structure and whitespace.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for action json size boundary includes structure and
+            whitespace."""
     empty_size = len(json.dumps({"url": ""}))
     arguments = {"url": "x" * (8192 - empty_size)}
     assert len(json.dumps(Action(name="browser_navigate", arguments=arguments).arguments)) == 8192
@@ -129,6 +183,12 @@ def test_action_json_size_boundary_includes_structure_and_whitespace() -> None:
 
 
 def test_action_argument_count_and_name_size_are_bounded_separately() -> None:
+    """Verify action argument count and name size are bounded separately.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for action argument count and name size are bounded
+            separately."""
     arguments = {str(index): None for index in range(32)}
     assert len(Action(name="x" * 100, arguments=arguments).arguments) == 32
     with pytest.raises(ValidationError):
@@ -140,6 +200,12 @@ def test_action_argument_count_and_name_size_are_bounded_separately() -> None:
 async def test_tool_catalog_at_exact_limit_is_accepted_and_larger_is_rejected_before_request() -> (
     None
 ):
+    """Verify tool catalog at exact limit is accepted and larger is rejected before request.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for tool catalog at exact limit is accepted and larger is
+            rejected before request."""
     adapter, invoke, _ = make_adapter({"raw": AIMessage(content=""), "parsed": Decision(done=True)})
     empty_size = len(json.dumps([{"description": ""}], ensure_ascii=False))
     tools = [{"description": "x" * (adapter.MAX_TOOL_CATALOG_CHARS - empty_size)}]

@@ -18,7 +18,12 @@ pytestmark = pytest.mark.live_llm
 async def test_llm_tool_selection_precision_and_capture_recall(
     live_decision_model: BudgetedDecisionModel, live_artifact_dir: Path
 ) -> None:
-    """Score tool choice, static-resource scope, oracle recall, and request precision."""
+    """Score tool choice, static-resource scope, oracle recall, and request precision.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for llm tool selection precision and capture recall.
+    """
     result, directory = await run_network_replay(
         live_artifact_dir,
         "NET-001",
@@ -42,7 +47,12 @@ async def test_llm_tool_selection_precision_and_capture_recall(
 async def test_llm_evidence_grounding_and_known_failure_recall(
     live_decision_model: BudgetedDecisionModel, live_artifact_dir: Path
 ) -> None:
-    """Score evidence traceability and whether the seeded HTTP 500 is preserved."""
+    """Score evidence traceability and whether the seeded HTTP 500 is preserved.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for llm evidence grounding and known failure recall.
+    """
     result, directory = await run_network_replay(
         live_artifact_dir,
         "NET-002",
@@ -84,7 +94,12 @@ async def test_llm_evidence_grounding_and_known_failure_recall(
 async def test_llm_long_context_failure_recall_and_summary_budget(
     live_decision_model: BudgetedDecisionModel, live_artifact_dir: Path
 ) -> None:
-    """Score recall of late failures in the 203-request edge case and summary compactness."""
+    """Score recall of late failures in the 203-request edge case and summary compactness.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for llm long context failure recall and summary budget.
+    """
     result, directory = await run_network_replay(
         live_artifact_dir,
         "NET-003",

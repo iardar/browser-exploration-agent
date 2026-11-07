@@ -89,6 +89,12 @@ def inspect() -> dict[str, Any]:
 
 
 def test_dedicated_deployment_records_verified_identity(docker_data: dict[str, Any]) -> None:
+    """Verify dedicated deployment records verified identity.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for dedicated deployment records verified identity.
+    """
     record = inspect()
     assert record["isolated"] is True and record["shared_context"] is False
     assert record["image"].endswith(
@@ -115,6 +121,12 @@ def test_dedicated_deployment_records_verified_identity(docker_data: dict[str, A
     ],
 )
 def test_unverified_deployments_fail_closed(docker_data: dict[str, Any], fault: str) -> None:
+    """Verify unverified deployments fail closed.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for unverified deployments fail closed.
+    """
     item = docker_data["mcp"]
     if fault == "image":
         item["Config"]["Image"] = "mcp:latest"
@@ -145,6 +157,12 @@ def test_unverified_deployments_fail_closed(docker_data: dict[str, Any], fault: 
 
 
 def test_fixture_probe_routes_are_fixed_and_do_not_change_the_oracle() -> None:
+    """Verify fixture probe routes are fixed and do not change the oracle.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for fixture probe routes are fixed and do not change the
+            oracle."""
     token = "a" * 32
     for mode in ("seed", "check"):
         code, mime, body = fixture_response(f"/__eval__/{mode}/{token}")
@@ -159,6 +177,12 @@ def test_fixture_probe_routes_are_fixed_and_do_not_change_the_oracle() -> None:
 def test_running_fixture_does_not_claim_to_have_reloaded_edited_sources(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify running fixture does not claim to have reloaded edited sources.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for running fixture does not claim to have reloaded edited
+            sources."""
     loaded = fixture_fingerprint()
     monkeypatch.setattr(fixture, "fixture_fingerprint", lambda: "edited-on-disk")
     body = fixture_response(f"/__eval__/check/{'a' * 32}")[2]
@@ -256,6 +280,12 @@ async def test_probes_verify_normal_and_interrupted_sessions_with_private_record
     monkeypatch: pytest.MonkeyPatch,
     owner: isolation.TrialIsolation,
 ) -> None:
+    """Verify probes verify normal and interrupted sessions with private records.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for probes verify normal and interrupted sessions with
+            private records."""
     sessions = install_probes(monkeypatch)
     await owner.prepare()
     assert owner.verified and not owner.failed and len(sessions) == 4
@@ -275,6 +305,12 @@ async def test_probes_verify_normal_and_interrupted_sessions_with_private_record
 async def test_probe_failure_prevents_trials(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation, fault: str
 ) -> None:
+    """Verify probe failure prevents trials.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for probe failure prevents trials.
+    """
     install_probes(
         monkeypatch,
         shared=fault == "storage",
@@ -296,6 +332,12 @@ async def test_probe_failure_prevents_trials(
 async def test_prerequisite_failure_never_opens_a_browser(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation, fault: str
 ) -> None:
+    """Verify prerequisite failure never opens a browser.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for prerequisite failure never opens a browser.
+    """
     sessions = install_probes(monkeypatch)
     if fault == "attestation":
         owner.settings.network_restricted = False
@@ -311,6 +353,12 @@ async def test_prerequisite_failure_never_opens_a_browser(
 async def test_preflight_cannot_be_reused(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify preflight cannot be reused.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for preflight cannot be reused.
+    """
     sessions = install_probes(monkeypatch)
     await owner.prepare()
     saved = (owner.directory / "preflight.json").read_text()
@@ -357,6 +405,12 @@ def install_trial(
 async def test_trial_uses_only_agent_actions_and_saves_cleanup(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify trial uses only agent actions and saves cleanup.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for trial uses only agent actions and saves cleanup.
+    """
     sessions = install_trial(monkeypatch, owner)
     model = FakeModel(
         [
@@ -387,6 +441,12 @@ async def test_trial_uses_only_agent_actions_and_saves_cleanup(
 async def test_cleanup_failure_stops_later_trials(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify cleanup failure stops later trials.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for cleanup failure stops later trials.
+    """
     sessions = install_trial(monkeypatch, owner, close_failure=True)
     first = owner.connection("NET-001", network_task("NET-001").url)
     result = await AutonomousBrowserExplorer(
@@ -403,6 +463,12 @@ async def test_cleanup_failure_stops_later_trials(
 async def test_model_cancellation_cleans_trial_session(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify model cancellation cleans trial session.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model cancellation cleans trial session.
+    """
     install_trial(monkeypatch, owner)
     model = FakeModel(blocked=True)
     connection = owner.connection("NET-001", network_task("NET-001").url)
@@ -421,6 +487,12 @@ async def test_model_cancellation_cleans_trial_session(
 async def test_deployment_restart_blocks_model_calls(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify deployment restart blocks model calls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for deployment restart blocks model calls.
+    """
     sessions = install_trial(monkeypatch, owner)
     monkeypatch.setattr(
         isolation, "inspect_deployment", lambda *args: {"container_id": "replacement"}
@@ -436,6 +508,12 @@ async def test_deployment_restart_blocks_model_calls(
 async def test_concurrent_trial_is_rejected_without_closing_the_active_one(
     monkeypatch: pytest.MonkeyPatch, owner: isolation.TrialIsolation
 ) -> None:
+    """Verify concurrent trial is rejected without closing the active one.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for concurrent trial is rejected without closing the active
+            one."""
     sessions = install_trial(monkeypatch, owner)
     first = owner.connection("NET-001", network_task("NET-001").url)
     second = owner.connection("NET-001", network_task("NET-001").url)
@@ -449,6 +527,12 @@ async def test_concurrent_trial_is_rejected_without_closing_the_active_one(
 
 
 async def test_readiness_waits_for_normal_snapshot_without_hidden_calls() -> None:
+    """Verify readiness waits for normal snapshot without hidden calls.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for readiness waits for normal snapshot without hidden
+            calls."""
     session = ReadyReplay("NET-001")
     ready = await session.call("browser_snapshot", {})
     pending = [{"type": "text", "text": f"- Page URL: {session.url}\nLoading"}]
@@ -463,6 +547,12 @@ async def test_readiness_waits_for_normal_snapshot_without_hidden_calls() -> Non
 
 @pytest.mark.parametrize("fault", ["marker", "url", "case", "tool_error"])
 async def test_readiness_failure_prevents_capture(fault: str) -> None:
+    """Verify readiness failure prevents capture.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for readiness failure prevents capture.
+    """
     session = ReadyReplay("NET-001")
     raw = await session.call("browser_snapshot", {})
     if fault == "tool_error":
@@ -492,6 +582,12 @@ async def test_sdk_lifecycle_closes_in_same_task(
     monkeypatch: pytest.MonkeyPatch,
     failure: str,
 ) -> None:
+    """Verify sdk lifecycle closes in same task.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for sdk lifecycle closes in same task.
+    """
     events: list[str] = []
     creator = asyncio.current_task()
 

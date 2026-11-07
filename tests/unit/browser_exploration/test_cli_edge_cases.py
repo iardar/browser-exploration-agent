@@ -33,6 +33,12 @@ def isolate_logger(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_logging_emits_one_redacted_json_record(
     monkeypatch: pytest.MonkeyPatch, with_details: bool
 ) -> None:
+    """Verify logging emits one redacted json record.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for logging emits one redacted json record.
+    """
     stream = io.StringIO()
     monkeypatch.setattr(cli.sys, "stderr", stream)
     logger = logging.getLogger("browser_exploration")
@@ -75,6 +81,12 @@ def test_logging_emits_one_redacted_json_record(
 def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, override: bool
 ) -> None:
+    """Verify environment defaults and explicit cli overrides reach the explorer.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for environment defaults and explicit cli overrides reach
+            the explorer."""
     captured_settings: list[Settings] = []
     captured_tasks: list[BrowserExplorationTask] = []
     connection = FakeConnection()
@@ -166,6 +178,13 @@ def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
 def test_invalid_cli_input_never_constructs_an_explorer_or_creates_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, option: str, value: str
 ) -> None:
+    """Verify invalid cli input never constructs an explorer or creates artifacts.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for invalid cli input never constructs an explorer or
+            creates artifacts."""
+
     def forbidden_explorer(*args: Any, **kwargs: Any) -> None:
         pytest.fail("Invalid input must be rejected before constructing the explorer")
 
@@ -182,6 +201,12 @@ def test_invalid_cli_input_never_constructs_an_explorer_or_creates_artifacts(
 def test_model_option_overrides_environment_and_is_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Verify model option overrides environment and is reported.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for model option overrides environment and is reported.
+    """
     captured: list[str] = []
 
     class CapturingExplorer:
@@ -213,6 +238,12 @@ def test_model_option_overrides_environment_and_is_reported(
 def test_module_entry_point_prints_help_without_services(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Verify module entry point prints help without services.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for module entry point prints help without services.
+    """
     monkeypatch.setattr(sys, "argv", ["qa-browser", "--help"])
     # The package is already imported by the offline fixture; runpy warns before
     # executing the same public module as Python's -m entry point.

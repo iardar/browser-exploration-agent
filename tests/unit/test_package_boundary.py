@@ -13,6 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_production_package_has_no_host_workflow_imports() -> None:
+    """Verify production package has no host workflow imports.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for production package has no host workflow imports.
+    """
     for source in (ROOT / "src" / "browser_exploration").glob("*.py"):
         tree = ast.parse(source.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -25,6 +31,12 @@ def test_production_package_has_no_host_workflow_imports() -> None:
 
 
 def test_public_service_imports_when_host_package_is_unavailable() -> None:
+    """Verify public service imports when host package is unavailable.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for public service imports when host package is
+            unavailable."""
     code = """
 import importlib.abc
 import sys
@@ -53,6 +65,12 @@ print(AutonomousBrowserExplorer.__module__)
 
 
 def test_checked_in_schemas_match_public_models(tmp_path: Path) -> None:
+    """Verify checked in schemas match public models.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for checked in schemas match public models.
+    """
     write_schemas(tmp_path)
     published = ROOT / "docs" / "browser_exploration" / "schemas"
     generated = sorted(tmp_path.glob("*.schema.json"))
@@ -63,6 +81,12 @@ def test_checked_in_schemas_match_public_models(tmp_path: Path) -> None:
 
 
 def test_distribution_excludes_python_playwright_and_host_package() -> None:
+    """Verify distribution excludes python playwright and host package.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for distribution excludes python playwright and host
+            package."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
     dependencies = project["project"]["dependencies"]
     assert all(

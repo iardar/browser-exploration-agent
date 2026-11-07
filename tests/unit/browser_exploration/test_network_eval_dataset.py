@@ -44,6 +44,12 @@ async def record_run(directory: Path, case_id: str) -> Path:
 
 @pytest.mark.parametrize("case_id, count", [("NET-001", 4), ("NET-002", 4), ("NET-003", 203)])
 def test_fixture_discovers_all_declared_requests_in_order(case_id: str, count: int) -> None:
+    """Verify fixture discovers all declared requests in order.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for fixture discovers all declared requests in order.
+    """
     expected = load_requests(case_id)
     assert len(expected) == count
     assert len({item.path for item in expected}) == count
@@ -67,6 +73,12 @@ def test_fixture_discovers_all_declared_requests_in_order(case_id: str, count: i
 
 
 def test_fixture_handles_favicon_and_unknown_routes_without_external_assets() -> None:
+    """Verify fixture handles favicon and unknown routes without external assets.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for fixture handles favicon and unknown routes without
+            external assets."""
     assert fixture_response("/favicon.ico") == (204, "image/x-icon", b"")
     assert fixture_response("/unknown")[0] == 404
     assert [case["category"] for case in load_dataset()["cases"]] == [
@@ -77,6 +89,12 @@ def test_fixture_handles_favicon_and_unknown_routes_without_external_assets() ->
 
 
 def test_edge_oracle_places_both_failures_beyond_the_old_observation_prefix() -> None:
+    """Verify edge oracle places both failures beyond the old observation prefix.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for edge oracle places both failures beyond the old
+            observation prefix."""
     text = listing("NET-003")
     assert text.index("=> [500]") > 6_000
     assert text.index("=> [404]") > 6_000
@@ -87,6 +105,12 @@ def test_edge_oracle_places_both_failures_beyond_the_old_observation_prefix() ->
 
 @pytest.mark.parametrize("case_id", ["NET-001", "NET-002", "NET-003"])
 async def test_grader_passes_complete_real_graph_artifacts(tmp_path: Path, case_id: str) -> None:
+    """Verify grader passes complete real graph artifacts.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for grader passes complete real graph artifacts.
+    """
     directory = await record_run(tmp_path, case_id)
     report = grade_run(case_id, directory)
     assert report["passed"] is True, report
@@ -130,6 +154,12 @@ def rewrite_json(path: Path, value: Any) -> None:
 async def test_grader_rejects_incomplete_or_misleading_artifacts(
     saved_run: Path, fault: str
 ) -> None:
+    """Verify grader rejects incomplete or misleading artifacts.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for grader rejects incomplete or misleading artifacts.
+    """
     result_path = saved_run / "result.json"
     config_path = saved_run / "run_config.json"
     trajectory_path = saved_run / "trajectory.jsonl"
@@ -189,6 +219,12 @@ async def test_grader_rejects_incomplete_or_misleading_artifacts(
 
 
 async def test_optional_favicon_does_not_change_oracle_coverage(saved_run: Path) -> None:
+    """Verify optional favicon does not change oracle coverage.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for optional favicon does not change oracle coverage.
+    """
     result = json.loads((saved_run / "result.json").read_text())
     raw_path = saved_run / result["evidence"][-1]["path"]
     raw = json.loads(raw_path.read_text())
@@ -209,6 +245,12 @@ async def test_optional_favicon_does_not_change_oracle_coverage(saved_run: Path)
 async def test_grade_cli_emits_json_and_a_success_exit_code(
     saved_run: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Verify grade cli emits json and a success exit code.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for grade cli emits json and a success exit code.
+    """
     monkeypatch.setattr("sys.argv", ["grade", "--case-id", "NET-003", "--run-dir", str(saved_run)])
     with pytest.raises(SystemExit) as caught:
         main()
@@ -217,4 +259,10 @@ async def test_grade_cli_emits_json_and_a_success_exit_code(
 
 
 def test_missing_artifacts_are_not_a_passing_capture(tmp_path: Path) -> None:
+    """Verify missing artifacts are not a passing capture.
+
+    Arrange: Prepare the inputs, collaborators, and configuration required for this scenario.
+    Act: Exercise the behavior described by the test.
+    Assert: Confirm the expected outcome for missing artifacts are not a passing capture.
+    """
     assert grade_run("NET-001", tmp_path)["verdict"] == "invalid_artifacts"
