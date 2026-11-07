@@ -16,6 +16,7 @@ build/
 !.env.example
 !.env.reportportal.example
 runs/
+coverage-reports/
 .playwright-mcp/
 *.log
 .DS_Store

@@ -288,18 +288,38 @@ only when this restricted sandbox needs it.
 
 ## Measure source coverage
 
+The coverage runner saves a separate snapshot for every invocation. It measures lines and
+branches in `src/browser_exploration`, `evals`, and `scripts`, with separate totals for each
+scope. It runs only offline unit tests, clears inherited service credentials and pytest options,
+and disables tracing and live MCP checks.
+
 ```bash
-uv run pytest -c pyproject.toml tests/unit \
-  --cov=browser_exploration --cov-branch \
-  --cov-report=term-missing \
-  --cov-report=html:runs/unit-coverage/html \
-  --cov-report=json:runs/unit-coverage/coverage.json
+uv run python -m scripts.coverage_report --label baseline --workers 4
+# After adding tests:
+uv run python -m scripts.coverage_report --label expanded --workers 4 \
+  --compare coverage-reports/baseline
 ```
 
-Reports are generated under ignored `runs/`. Add the selector plugin/import path above only if
-the sandbox needs it. CI does not currently enforce a coverage-percentage threshold. Any new
-threshold should be based on a fresh measurement.
-Source coverage does not establish application coverage, model quality, or action safety.
+Reports are saved under ignored `coverage-reports/<label>/`. An existing label is rejected;
+omit `--label` for a new UTC timestamp. By default tests run serially; `--workers` enables xdist.
+Add `--sandbox-polling` only when the restricted environment needs the selector workaround.
+The command returns pytest's exit code, including when a failed run still produces coverage.
+
+Each snapshot contains:
+
+- `html/index.html`: browsable file coverage and missing branches.
+- `coverage.json`, `coverage.xml`, and `.coverage`: machine-readable coverage with test contexts.
+- `summary.md`: separate line/branch totals and exact uncovered line/branch locations.
+- `pytest.log` and `junit.xml`: test outcomes and failure details.
+- `metadata.json`: command, runtime/tool versions, exit code, timestamps, and source/test hashes.
+- `comparison.md`, when `--compare` is supplied: file-by-file changes in combined line/branch
+  coverage. Both snapshots remain available; added or removed files are marked as scope changes.
+
+Logs are written to disk during execution. Totals and report location are printed when pytest
+finishes. Inspect the saved log if collection fails before coverage output can be generated.
+CI does not currently enforce a coverage threshold. Compare matching scopes and inspect source
+changes when interpreting differences. Execution coverage does not measure assertion quality,
+application coverage, model quality, or action safety.
 
 ## Offline graph demonstration
 
