@@ -235,9 +235,46 @@ def test_forbidden_tools_and_filename_args_cannot_escape_policy() -> None:
         ("browser_evaluate", {"function": "() => document.cookie"}),
         ("browser_snapshot", {"filename": "/tmp/leak"}),
         ("browser_take_screenshot", {"filename": "../secret"}),
+        ("browser_network_requests", {"filename": "requests.txt"}),
     ):
         with pytest.raises(SafetyError):
-            restricted.authorize(name, arguments, CAPABILITIES)
+            restricted.authorize(
+                name, arguments, {**CAPABILITIES, "network": "browser_network_requests"}
+            )
+
+
+def test_network_scope_options_are_passed_to_the_selected_tool() -> None:
+    """Accept a bounded URL filter and boolean history option without rewriting either value."""
+    args = {"static": True, "filter": r"/api/.*", "all": True}
+    selected = {**CAPABILITIES, "network": "browser_network_requests"}
+    assert policy().authorize("browser_network_requests", args, selected) == (
+        "browser_network_requests",
+        args,
+    )
+    assert args == {"static": True, "filter": r"/api/.*", "all": True}
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"all": "true"},
+        {"all": 1},
+        {"filter": 3},
+        {"filter": ""},
+        {"filter": "x" * 257},
+        {"filter": "x\x00y"},
+        {"filter": "x\x7fy"},
+        {"filter": "x\ny"},
+    ],
+)
+def test_network_scope_options_reject_invalid_values(arguments: dict[str, object]) -> None:
+    """Reject malformed URL filters and non-boolean history flags before calling MCP."""
+    with pytest.raises(SafetyError):
+        policy().authorize(
+            "browser_network_requests",
+            arguments,
+            {**CAPABILITIES, "network": "browser_network_requests"},
+        )
 
 
 def test_screenshot_target_must_be_an_observed_reference() -> None:

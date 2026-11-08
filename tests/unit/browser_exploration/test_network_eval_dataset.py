@@ -42,6 +42,27 @@ async def record_run(directory: Path, case_id: str) -> Path:
     return run_dir
 
 
+async def test_network_filter_and_history_reach_the_browser_and_trajectory(tmp_path: Path) -> None:
+    """Check that a model-selected network scope reaches MCP and the persisted observation."""
+    arguments = {"static": True, "filter": r"/resources/NET-001/.*", "all": True}
+    model = FakeModel(
+        [
+            DecisionResponse(
+                Decision(action=Action(name="browser_network_requests", arguments=arguments))
+            ),
+            DecisionResponse(Decision(done=True)),
+        ]
+    )
+    result, directory = await run_network_replay(tmp_path, "NET-001", model)
+    trajectory = [
+        json.loads(line) for line in (directory / "trajectory.jsonl").read_text().splitlines()
+    ]
+    assert result.status == "completed"
+    network = next(item for item in trajectory if item["action_name"] == "browser_network_requests")
+    assert network["action_arguments"] == arguments
+    assert network["error"] is False
+
+
 @pytest.mark.parametrize("case_id, count", [("NET-001", 4), ("NET-002", 4), ("NET-003", 203)])
 def test_fixture_discovers_all_declared_requests_in_order(case_id: str, count: int) -> None:
     """Verify fixture discovers all declared requests in order.

@@ -64,6 +64,18 @@ availability or exploration quality.
 only when known names and compatible schemas are available. One initialized MCP session remains
 open for the whole exploration run.
 
+To inspect the server's complete advertised toolset without a model call or browser action, run:
+
+```bash
+uv run python scripts/observe_mcp_tools.py
+uv run python scripts/observe_mcp_tools.py \
+  --tool browser_network_requests --tool browser_network_request
+```
+
+The first command prints all advertised names. The second prints the input schemas for those exact
+tools and lists any missing names. The script uses `PLAYWRIGHT_MCP_URL` (or `--url`) and does not
+filter the catalog through the agent's supported-tool allowlist.
+
 ## Safety prerequisites
 
 Use an authorized controlled application and a dedicated or isolated browser context. Navigation,
@@ -278,6 +290,16 @@ raise before a valid result is returned.
 
 ### Network evidence and model context
 
+When the connected MCP server advertises them, the agent can pass `filter` (a URL regular
+expression) and `all` (a boolean) to `browser_network_requests`. For example,
+`{"static": true, "filter": "/api/.*", "all": true}` asks the server to include successful
+static resources, return only matching URLs, and include request history from earlier
+navigations in the same browser session. The URL pattern must be nonempty, contain no control
+characters, and be at most 256 characters; the MCP server validates regex syntax. `all` must be
+a boolean. Older servers that do not advertise these fields keep their existing network tool
+catalog. The agent cannot pass `filename`: the MCP server would write that file on its own host,
+outside this application's artifact store.
+
 When the agent calls `browser_network_requests` (or its supported Playwright-prefixed alias), a
 successful response receives a compact network summary. It reports recognized request counts,
 HTTP 4xx/5xx responses, transport failures, and unknown outcomes. Up to five request details are
@@ -299,7 +321,9 @@ It replaces the full listing
 in `trajectory.jsonl` and model context, which remains subject to the overall message budget.
 Unrecognized lines and unknown outcomes are disclosed. An unsupported or empty response format
 retains a bounded redacted excerpt with unknown counts rather than implying there were no errors.
-Counts describe the recognized lines returned by the tool; excluded traffic is not assessed.
+Counts describe the recognized lines returned by the tool. When `filter` is used, they cover
+only matching URLs; with `all`, they can cover earlier navigations in the same session. Excluded
+traffic is not assessed, so a filtered listing is unsuitable for a complete-capture evaluation.
 
 Enable `BROWSER_RETAIN_RAW_EVIDENCE=true` or add `--retain-raw-evidence` to `run` to also save the
 complete redacted tool response at `evidence/obs-XXXX.json`. The observation's `evidence_ref` and

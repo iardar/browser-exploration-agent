@@ -60,7 +60,7 @@ ARGUMENTS: dict[str, frozenset[str]] = {
     "fill_form": frozenset({"fields"}),
     "screenshot": frozenset({"type", "fullPage", "ref", "target", "element", "scale"}),
     "console": frozenset({"level", "onlyErrors"}),
-    "network": frozenset({"includeStatic", "static"}),
+    "network": frozenset({"includeStatic", "static", "filter", "all"}),
 }
 
 REFERENCE_DESCRIPTION = (
@@ -140,6 +140,13 @@ def _compatible(tool: BaseTool, capability: str) -> bool:
             for key in required_fields
         ):
             return False
+    if capability == "network":
+        for key, expected_type in (("filter", "string"), ("all", "boolean")):
+            field = properties.get(key)
+            if key in properties and (
+                not isinstance(field, dict) or field.get("type") != expected_type
+            ):
+                return False
     return True
 
 

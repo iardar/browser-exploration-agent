@@ -228,6 +228,20 @@ class SafetyPolicy:
             raise SafetyError("Tool arguments include unsupported or filesystem parameters.")
         # Normalize a copy so checking the proposal does not rewrite the model's original data.
         clean = dict(args)
+        if capability == "network":
+            if "all" in clean and type(clean["all"]) is not bool:
+                raise SafetyError("Network history option must be a boolean.")
+            if "filter" in clean:
+                pattern = clean["filter"]
+                if (
+                    not isinstance(pattern, str)
+                    or not pattern
+                    or len(pattern) > 256
+                    or any(ord(char) < 32 or ord(char) == 127 for char in pattern)
+                ):
+                    raise SafetyError(
+                        "Network URL filter must be a nonempty pattern of at most 256 characters."
+                    )
         if capability == "navigate":
             if not isinstance(clean.get("url"), str):
                 raise SafetyError("Navigation requires a URL string.")

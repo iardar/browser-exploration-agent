@@ -143,6 +143,59 @@ def test_current_microsoft_screenshot_and_network_schemas_are_discovered() -> No
     assert len(tool_specs(_ConnectedSession(selected, capabilities))) == 4
 
 
+def test_network_catalog_exposes_supported_scope_options_but_not_filename() -> None:
+    """Only advertised listing scope options reach the model, while server files stay excluded."""
+    network = fake_tool(
+        "browser_network_requests",
+        {
+            "static": {"type": "boolean"},
+            "filter": {"type": "string", "description": "Match URLs"},
+            "all": {"type": "boolean"},
+            "filename": {"type": "string"},
+        },
+    )
+    selected, capabilities = discovered_tools(
+        [
+            fake_tool("browser_navigate", {"url": {"type": "string"}}),
+            fake_tool("browser_snapshot"),
+            network,
+        ]
+    )
+    spec = next(
+        item
+        for item in tool_specs(_ConnectedSession(selected, capabilities))
+        if item["capability"] == "network"
+    )
+    assert set(spec["arguments"]["properties"]) == {"static", "filter", "all"}
+    assert spec["arguments"]["properties"]["filter"]["description"] == "Match URLs"
+    assert "filename" not in spec["arguments"]["properties"]
+    assert "filename" in argument_schema(network)["properties"]
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("filter", {"type": "integer"}),
+        ("filter", None),
+        ("all", []),
+        ("all", {"type": "string"}),
+        ("all", None),
+    ],
+)
+def test_network_tool_with_malformed_scope_schema_is_not_discovered(field: str, value: Any) -> None:
+    """Reject a network tool whose advertised filter or history type cannot be checked."""
+    network = fake_tool("browser_network_requests")
+    network.args_schema = {"type": "object", "properties": {field: value}}
+    _, capabilities = discovered_tools(
+        [
+            fake_tool("browser_navigate", {"url": {"type": "string"}}),
+            fake_tool("browser_snapshot"),
+            network,
+        ]
+    )
+    assert "network" not in capabilities
+
+
 def test_typing_catalog_explains_bare_references_without_changing_the_server_schema() -> None:
     """Verify typing catalog explains bare references without changing the server schema.
 
