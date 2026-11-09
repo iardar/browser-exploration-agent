@@ -23,4 +23,6 @@ coverage-reports/
 output/pdf/
 tmp/pdfs/
 mcp_run.sh
-simple_runs.sh
+run_simple.sh
+ls_results/
+

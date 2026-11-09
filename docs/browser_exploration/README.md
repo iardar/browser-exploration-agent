@@ -101,6 +101,7 @@ and submission have separate flags:
 | `--allow-mutations` | Certain generic clicks on observed references | Known authentication, destructive, payment, and publishing controls remain denied |
 | `--allow-form-input` | Bounded typing and filling observed non-sensitive fields | No credentials, tokens, payment data, or unsupported field types |
 | `--allow-form-submission` | Supported submission and observed Submit/Search controls; implies input permission | Does not bypass sensitive-control or destination checks |
+| `--allow-network-details` | Inspect selected request headers and textual bodies | Requires a verified request overview and, for response bodies, a recognized textual MIME type |
 
 Arbitrary JavaScript, uploads, filesystem tools, and credential management are excluded. The
 label/route checks are heuristic; permission flags do not prove that an operation is safe.
@@ -309,11 +310,11 @@ shown, with failures before unknown outcomes and other responses. For example:
 Network requests parsed: 18; HTTP errors: 1; failed: 1; unknown outcome: 0.
 Static requests omitted by tool: 21.
 Request details omitted: 13.
-[500] GET https://example.com/api/articles Server Error
-[FAILED] GET https://example.com/api/tags net::ERR_CONNECTION_RESET
-[200] GET https://example.com/
-[200] GET https://example.com/api/profile
-[200] GET https://example.com/api/settings
+[500] GET https://example.com/api/articles Server Error [request #7]
+[FAILED] GET https://example.com/api/tags net::ERR_CONNECTION_RESET [request #9]
+[200] GET https://example.com/ [request #1]
+[200] GET https://example.com/api/profile [request #3]
+[200] GET https://example.com/api/settings [request #4]
 ```
 
 The network summary is capped at 1,000 characters, or the task's smaller observation allowance.
@@ -325,15 +326,52 @@ Counts describe the recognized lines returned by the tool. When `filter` is used
 only matching URLs; with `all`, they can cover earlier navigations in the same session. Excluded
 traffic is not assessed, so a filtered listing is unsuitable for a complete-capture evaluation.
 
-Enable `BROWSER_RETAIN_RAW_EVIDENCE=true` or add `--retain-raw-evidence` to `run` to also save the
-complete redacted tool response at `evidence/obs-XXXX.json`. The observation's `evidence_ref` and
-`result.json` evidence entry link to that file. Keeping the artifact does not add its contents to
-model context. With retention disabled, only the bounded summary and metadata remain.
+### Inspect one network request
 
-This feature adds no automatic network captures and does not change tool arguments or static
-filtering. Request collection in the objective when needed; collection consumes the existing
-browser-call budget. It stores the returned request listing, not a HAR, headers, or response
-bodies. Tool-level failures retain their normal diagnostic summaries.
+With `--allow-network-details`, the agent can inspect a request when the MCP server advertises a
+compatible `browser_network_request` tool. The Python equivalent is
+`BrowserExplorationTask(..., allow_network_details=True)`. The permission defaults to false and
+also permits the model to receive bounded request/response headers and bodies. Use controlled data:
+redaction handles recognized secret patterns but does not identify every sensitive value.
+
+For example, after configuring the browser network boundary:
+
+```bash
+uv run qa-browser run --url https://example.com/ \
+  --goal "Find a failed request and inspect its response body" \
+  --allow-network-details --retain-raw-evidence
+```
+
+The agent first calls `browser_network_requests` and selects a numbered request shown in the
+summary. It calls `browser_network_request` with that index and no `part` to verify the overview's
+index, method and URL against the listing. It can then request a server-advertised part:
+`request-headers`, `request-body`, `response-headers`, or `response-body`. Response bodies require
+a recognized textual MIME type from the verified overview. Unknown or binary types are rejected
+before requesting the body. A request URL must satisfy the task's allowed-domain policy.
+
+Indices are valid only for the latest listing in that session and are cleared after a new listing
+or an agent navigation or interaction. Page scripts or the MCP server can change traffic without
+an agent action, so the index check cannot guarantee stable server-side request identity. If a
+listing has no visible numbered references, or the server returns an incompatible overview, the
+agent cannot select its details. Empty responses and server-side file references are recorded as
+unavailable rather than inspected content.
+
+Detail observations cite the listing evidence ID and use the existing browser-call and context
+budgets. If raw retention is enabled, retained detail text is redacted and truncated after 65,536
+characters, with an additional marker. The MCP transport may deliver a larger response before this
+limit is applied. The app does not read server-side files; the MCP server can still write files on
+its own host, so manage its output directory separately.
+
+Enable `BROWSER_RETAIN_RAW_EVIDENCE=true` or add `--retain-raw-evidence` to `run` to also save the
+redacted tool response at `evidence/obs-XXXX.json` (detail responses use the limit above). The
+observation's `evidence_ref` and `result.json` evidence entry link to that file. Keeping the
+artifact does not add its contents to model context. With retention disabled, only the bounded
+summary and metadata remain.
+
+Listing summaries add no automatic network captures and do not change static filtering. Request
+collection in the objective when needed; collection consumes the existing browser-call budget.
+The listing tool returns request listings; it does not capture a HAR or the
+individual headers and bodies. Tool-level failures retain their normal diagnostic summaries.
 
 ### Schema export
 

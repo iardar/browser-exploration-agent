@@ -102,6 +102,7 @@ configured for strict primitive types. A task is revalidated and copied on servi
 | `allow_mutations` | boolean / false | Allows certain observed generic clicks; does not remove other denials |
 | `allow_form_input` | boolean / false | Allows bounded input in observed non-sensitive fields |
 | `allow_form_submission` | boolean / false | Allows submission via Enter or observed submission/search controls; implies input permission |
+| `allow_network_details` | boolean / false | Allows inspection of selected network request headers and bodies under the restrictions below |
 
 An empty `allowed_domains` list defaults to the target hostname. Consumers should provide an
 explicit list from their own authorization policy. Exact hostname matching does not restrict all
@@ -148,6 +149,7 @@ The separate parent workflow's `LLM_MODEL` variable has no meaning in this distr
 | Fill form | Optional | Input permission; 1–20 observed fields; bounded values and allowed field types |
 | Screenshot | Optional | Supported schema; binary artifacts excluded from model context |
 | Console/network inspection | Optional | Supported known aliases and bounded context selection |
+| Network request details | Optional | Explicit task permission, an index from the latest listing, verified request identity and supported part |
 | JavaScript/code execution | Excluded | No arbitrary execution tool exposed |
 | Uploads/credential management | Excluded | Not enabled by mutation flags |
 
@@ -160,6 +162,15 @@ Even explicit permissions do not permit known authentication, payment, destructi
 or publishing controls. Label checks are heuristic and incomplete, including across languages.
 Form typing/filling are bounded to 2,000 characters per text value. No mutation permission proves
 that a generic click is harmless.
+
+Request detail inspection is independent of mutation and form permissions. It requires an index
+shown in the latest network summary and an allowed request URL. The request overview must match
+the listing's index, method and URL before its individual parts can be requested. Response body
+inspection additionally requires a recognized textual response MIME type. Indices are invalidated
+after a new listing or an agent interaction that can change the page. These checks cannot prove
+that an asynchronously changing server has kept request indices stable. Detail text may be sent
+to the model; recognized secrets are redacted on a best-effort basis and raw retention is separate.
+MCP servers may independently write files, including for binary bodies, on their own host.
 
 ## 8. Lifecycle and resource accounting
 

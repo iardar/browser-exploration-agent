@@ -10,7 +10,7 @@ import re
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import parse_qsl, unquote, urljoin, urlsplit, urlunsplit
 
-from .browser_tools import ARGUMENTS
+from .browser_tools import ARGUMENTS, NETWORK_DETAIL_PARTS
 
 if TYPE_CHECKING:
     from .contracts import BrowserExplorationTask
@@ -242,6 +242,16 @@ class SafetyPolicy:
                     raise SafetyError(
                         "Network URL filter must be a nonempty pattern of at most 256 characters."
                     )
+        if capability == "network_detail":
+            if not self.task.allow_network_details:
+                raise SafetyError("Network request details require allow_network_details.")
+            index = clean.get("index")
+            if type(index) is not int or not 1 <= index <= 9_007_199_254_740_991:
+                raise SafetyError("Network request index must be a positive integer.")
+            if "part" in clean:
+                part = clean["part"]
+                if not isinstance(part, str) or part not in NETWORK_DETAIL_PARTS:
+                    raise SafetyError("Unsupported network request detail part.")
         if capability == "navigate":
             if not isinstance(clean.get("url"), str):
                 raise SafetyError("Navigation requires a URL string.")

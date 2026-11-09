@@ -46,6 +46,8 @@ class BrowserExplorationTask(Contract):
     allow_mutations: bool = False
     allow_form_input: bool = False
     allow_form_submission: bool = False
+    # Request details can include headers and bodies, so they require explicit permission.
+    allow_network_details: bool = False
 
     @field_validator("objective")
     @classmethod

@@ -48,6 +48,7 @@ ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "console": ("browser_console_messages", "playwright_browser_console_messages"),
     "network": ("browser_network_requests", "playwright_browser_network_requests"),
+    "network_detail": ("browser_network_request", "playwright_browser_network_request"),
 }
 
 # These are the argument keys the app knows how to check for each capability.
@@ -61,7 +62,29 @@ ARGUMENTS: dict[str, frozenset[str]] = {
     "screenshot": frozenset({"type", "fullPage", "ref", "target", "element", "scale"}),
     "console": frozenset({"level", "onlyErrors"}),
     "network": frozenset({"includeStatic", "static", "filter", "all"}),
+    "network_detail": frozenset({"index", "part"}),
 }
+
+NETWORK_DETAIL_PARTS = frozenset(
+    {"request-headers", "request-body", "response-headers", "response-body"}
+)
+
+
+def network_detail_parts(tool: BaseTool) -> frozenset[str]:
+    """Return supported detail parts from the server schema, bounded by our allowlist."""
+    properties = argument_schema(tool).get("properties", {})
+    if not isinstance(properties, dict):
+        return frozenset()
+    part = properties.get("part")
+    if not isinstance(part, dict) or part.get("type") != "string":
+        return frozenset()
+    choices = part.get("enum")
+    if choices is None:
+        return NETWORK_DETAIL_PARTS
+    if not isinstance(choices, list) or not all(isinstance(value, str) for value in choices):
+        return frozenset()
+    return NETWORK_DETAIL_PARTS.intersection(choices)
+
 
 REFERENCE_DESCRIPTION = (
     "Bare element reference copied from the latest accessibility snapshot. For [ref=e43], "
@@ -147,6 +170,22 @@ def _compatible(tool: BaseTool, capability: str) -> bool:
                 not isinstance(field, dict) or field.get("type") != expected_type
             ):
                 return False
+    if capability == "network_detail":
+        index = properties.get("index")
+        if (
+            not isinstance(index, dict)
+            or index.get("type") != "integer"
+            or "index" not in required
+            or "part" in required
+        ):
+            return False
+        part = properties.get("part")
+        if part is not None and (
+            not isinstance(part, dict)
+            or part.get("type") != "string"
+            or ("enum" in part and not network_detail_parts(tool))
+        ):
+            return False
     return True
 
 
@@ -189,6 +228,13 @@ def tool_specs(session: BrowserSession) -> list[dict[str, Any]]:
             if key in allowed
         }
         _describe_references(properties)
+        if capability == "network_detail":
+            properties["index"]["description"] = (
+                "Request index shown in the latest network listing in this session. "
+                "First call without part to verify the request, then select a part."
+            )
+            if "part" in properties:
+                properties["part"]["enum"] = sorted(network_detail_parts(session.tools[name]))
         specs.append(
             {
                 "name": name,

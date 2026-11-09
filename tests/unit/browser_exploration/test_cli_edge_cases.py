@@ -126,6 +126,7 @@ def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
             "30",
             "--no-retain-raw-evidence",
             "--allow-mutations",
+            "--allow-network-details",
             "--allowed-domain",
             "example.com",
             "--allowed-domain",
@@ -147,6 +148,7 @@ def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
         (3, 2, 30) if override else (9, 7, 60)
     )
     assert task.allow_mutations is override
+    assert task.allow_network_details is override
     assert [item.text for item in task.context_snippets] == (
         ["First context", "Second context"] if override else []
     )
@@ -157,6 +159,12 @@ def test_environment_defaults_and_explicit_cli_overrides_reach_the_explorer(
         "Help is available without authentication" if override else None
     )
     result_path = Path(json.loads(response.stdout)["result"])
+    assert (
+        json.loads((result_path.parent / "run_config.json").read_text())["task"][
+            "allow_network_details"
+        ]
+        is override
+    )
     assert result_path.parent.parent == tmp_path
     result = BrowserExplorationResult.model_validate_json(result_path.read_text())
     assert result.status == "completed"

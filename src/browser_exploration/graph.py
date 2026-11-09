@@ -20,7 +20,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
-from .browser_tools import tool_specs
+from .browser_tools import network_detail_parts, tool_specs
 from .config import Settings
 from .context_builder import ContextBuilder, ContextLimitError
 from .contracts import (
@@ -38,13 +38,21 @@ from .model import (
     OpenAIDecisionModel,
     validation_diagnostics,
 )
-from .observations import summarize_network_observation, summarize_observation
+from .observations import (
+    network_detail_is_file_reference,
+    network_detail_mime,
+    summarize_network_observation,
+    summarize_observation,
+    textual_response_mime,
+    visible_network_requests,
+)
 from .reporting import ArtifactStore, redact, redact_text
 from .safety import SafetyError, SafetyPolicy
 from .state import ExplorationState
 from .telemetry import TokenAccumulator
 
 logger = logging.getLogger(__name__)
+_MAX_NETWORK_DETAIL_CHARS = 65_536
 
 
 def observation_text(raw: Any) -> str:
@@ -98,6 +106,9 @@ class ExplorationNodes:
         self.needs_snapshot = False
         self.consecutive_invalid_decisions = 0
         self.reference_observation_id: str | None = None
+        self.network_requests: dict[int, tuple[str, str]] = {}
+        self.network_listing_evidence: str | None = None
+        self.verified_network_details: dict[int, str | None] = {}
 
     def stop(self, status: RunStatus, code: str, message: str) -> None:
         """Set a terminal status and add a diagnostic with recognized secrets removed."""
@@ -284,6 +295,10 @@ class ExplorationNodes:
         usage: dict[str, int] | None = None
         try:
             available_tools = tool_specs(self.session)
+            if not state["task"].allow_network_details or not self.network_requests:
+                available_tools = [
+                    spec for spec in available_tools if spec["capability"] != "network_detail"
+                ]
             snapshot_key = self.inspection_key("snapshot", {})
             if snapshot_key in self.completed_inspections:
                 # Snapshot has no scope arguments: every proposal would be a
@@ -375,12 +390,41 @@ class ExplorationNodes:
         capability = next(
             key for key, tool_name in self.session.capabilities.items() if tool_name == name
         )
+        request_index: int | None = None
+        request_identity: tuple[str, str] | None = None
+        request_part: str | None = None
+        listing_evidence = self.network_listing_evidence
+        if capability == "network_detail":
+            request_index = arguments["index"]
+            request_identity = self.network_requests.get(request_index)
+            if request_identity is None or listing_evidence is None:
+                raise SafetyError("Select a request index shown in the latest network listing.")
+            self.policy.validate_url(request_identity[1])
+            request_part = arguments.get("part")
+            if request_part is not None:
+                if request_part not in network_detail_parts(self.session.tools[name]):
+                    raise SafetyError("The MCP server does not advertise this detail part.")
+                if request_index not in self.verified_network_details:
+                    raise SafetyError(
+                        "Inspect the request overview before selecting a detail part."
+                    )
+                if request_part == "response-body" and not textual_response_mime(
+                    self.verified_network_details[request_index]
+                ):
+                    raise SafetyError("Response body requires a verified textual content type.")
         inspection_key = self.inspection_key(capability, arguments)
         if inspection_key is not None and inspection_key in self.completed_inspections:
             raise SafetyError(
                 f"The {capability} action already succeeded for the current page state. "
                 "Use its existing observation and finish or choose a different useful action."
             )
+        if capability in {"navigate", "click", "hover", "type", "fill_form", "network"}:
+            self.network_requests.clear()
+            self.network_listing_evidence = None
+            self.verified_network_details.clear()
+            self.completed_inspections = {
+                key for key in self.completed_inspections if key[1] != "network_detail"
+            }
         # Policy rejections above do not count as attempted browser calls.
         metrics = state["metrics"]
         metrics.browser_tool_calls += 1
@@ -396,30 +440,58 @@ class ExplorationNodes:
             text = observation_text(raw)
             if isinstance(raw, dict) and raw.get("isError"):
                 raise MCPError("mcp_tool_error", "Browser tool reported an error")
-            if not text.strip():
+            if not text.strip() and capability == "network_detail":
+                error = True
+                text = "The request detail is empty or unavailable."
+            elif not text.strip():
                 raise MCPError("empty_observation", "Browser tool returned no usable observation")
+            if (
+                capability == "network_detail"
+                and not error
+                and request_part is not None
+                and (
+                    network_detail_is_file_reference(text)
+                    or "[binary evidence omitted from model context]" in text
+                )
+            ):
+                error = True
+                text = "The MCP server returned non-text content; its contents were not inspected."
+                raw = None
+            if capability == "network_detail" and not error and request_part is None:
+                assert request_index is not None and request_identity is not None
+                matched, mime = network_detail_mime(text, request_index, request_identity)
+                if not matched:
+                    error = True
+                    text = "Request overview did not match the selected network listing."
+                    raw = None
+                else:
+                    self.verified_network_details[request_index] = mime
             requires_url = name in {
                 self.session.capabilities["navigate"],
                 self.session.capabilities["snapshot"],
             }
-            state["current_url"] = self.policy.observe(text, require_url=requires_url)
+            if capability != "network_detail":
+                state["current_url"] = self.policy.observe(text, require_url=requires_url)
             references_refreshed = self.policy.reference_revision != previous_reference_revision
-            if name == self.session.capabilities["snapshot"] and not re.search(
-                r"^\s*-\s+(?!Page (?:URL|Title):)\S", text, re.MULTILINE
+            if (
+                not error
+                and name == self.session.capabilities["snapshot"]
+                and not re.search(r"^\s*-\s+(?!Page (?:URL|Title):)\S", text, re.MULTILINE)
             ):
                 raise MCPError(
                     "insufficient_observation", "Accessibility snapshot contains no page content"
                 )
-            metrics.successful_browser_tool_calls += 1
-            state["action_feedback"] = None
-            if capability in {"navigate", "click", "hover", "type", "fill_form"}:
+            if not error:
+                metrics.successful_browser_tool_calls += 1
+                state["action_feedback"] = None
+            if not error and capability in {"navigate", "click", "hover", "type", "fill_form"}:
                 self.page_revision += 1
                 # Some MCP versions return a file link instead of inline page content.
                 self.needs_snapshot = bool(
                     re.search(r"^\s*-\s+\[Snapshot\]\(", text, re.MULTILINE)
                     and not self.policy.element_labels
                 )
-            elif inspection_key is not None:
+            elif not error and inspection_key is not None:
                 self.completed_inspections.add(inspection_key)
                 if capability == "snapshot":
                     self.needs_snapshot = False
@@ -447,6 +519,14 @@ class ExplorationNodes:
             # Keep a record even if the call failed or cancellation interrupted it.
             if error:
                 metrics.failed_browser_tool_calls += 1
+            if capability == "network_detail":
+                # Detail payloads can be large and contain secrets. Retain only bounded,
+                # redacted text; server-side files are never read by this application.
+                text = redact_text(text)
+                truncated = len(text) > _MAX_NETWORK_DETAIL_CHARS
+                if truncated:
+                    text = text[:_MAX_NETWORK_DETAIL_CHARS] + "\n[detail truncated]"
+                raw = {"type": "text", "text": text, "truncated": truncated}
             # Keep request failures visible without adding the full listing to context.
             # Tool errors retain the usual diagnostic text; raw evidence is unchanged.
             summarize = (
@@ -454,16 +534,26 @@ class ExplorationNodes:
                 if capability == "network" and not error
                 else summarize_observation
             )
+            summary_text = text
+            if capability == "network_detail" and request_index is not None:
+                summary_text = (
+                    f"Request #{request_index}, {request_part or 'overview'}; "
+                    f"listing evidence: {listing_evidence}.\n{text}"
+                )
             observation = BrowserObservation(
                 id=f"obs-{metrics.browser_tool_calls:04d}",
                 url=redact_text(state["current_url"] or state["task"].url),
                 action_name=name,
                 action_arguments=redact(arguments),
-                summary=summarize(text, state["task"].max_observation_chars),
+                summary=summarize(summary_text, state["task"].max_observation_chars),
                 error=error,
             )
             evidence = self.store.record(observation, raw)
             state["evidence"].append(evidence)
+            if not error and capability == "network":
+                self.network_requests = visible_network_requests(text, observation.summary)
+                if self.network_requests:
+                    self.network_listing_evidence = evidence.id
             if not error:
                 if references_refreshed:
                     self.reference_observation_id = observation.id
@@ -499,7 +589,7 @@ class ExplorationNodes:
                 "target": arguments.get("ref", arguments.get("target")),
                 "fullPage": bool(arguments.get("fullPage", False)),
             }
-        elif capability in {"console", "network"}:
+        elif capability in {"console", "network", "network_detail"}:
             scope = arguments
         else:
             return None

@@ -123,6 +123,11 @@
       "default": false,
       "title": "Allow Form Submission",
       "type": "boolean"
+    },
+    "allow_network_details": {
+      "default": false,
+      "title": "Allow Network Details",
+      "type": "boolean"
     }
   },
   "required": [

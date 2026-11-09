@@ -44,6 +44,16 @@ _ASSIGNMENT = re.compile(
 _BEARER = re.compile(r"\bBearer\s+[^\s,;\"']+", re.IGNORECASE)
 _OPENAI_KEY = re.compile(r"\bsk-[a-zA-Z0-9_-]{12,}\b")
 _JWT = re.compile(r"\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b")
+_SECRET_HEADER = re.compile(
+    r"^([ \t]*(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key)"
+    r"[ \t]*:[ \t]*)[^\r\n]*",
+    re.IGNORECASE | re.MULTILINE,
+)
+_JSON_SECRET = re.compile(
+    r'("[^"\\]*(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie|'
+    r'session[_-]?id)"\s*:\s*)("(?:\\.|[^"\\])*"|[^\s,}\]]+)',
+    re.IGNORECASE,
+)
 
 
 def _redact_url(match: re.Match[str]) -> str:
@@ -66,6 +76,8 @@ def _redact_url(match: re.Match[str]) -> str:
 
 def redact_text(value: str) -> str:
     """Hide recognized secret patterns and URL query values, not all sensitive content."""
+    value = _SECRET_HEADER.sub(lambda match: match.group(1) + _REDACTED, value)
+    value = _JSON_SECRET.sub(lambda match: match.group(1) + '"' + _REDACTED + '"', value)
     value = _BEARER.sub("Bearer " + _REDACTED, value)
     value = _ASSIGNMENT.sub(lambda match: match.group(1) + _REDACTED, value)
     value = _OPENAI_KEY.sub(_REDACTED, value)
@@ -163,6 +175,7 @@ class ArtifactStore:
             "allow_mutations",
             "allow_form_input",
             "allow_form_submission",
+            "allow_network_details",
             "max_steps",
             "max_model_iterations",
             "max_duration_seconds",

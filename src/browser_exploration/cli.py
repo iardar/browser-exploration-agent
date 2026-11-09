@@ -176,6 +176,9 @@ def run(
     allow_form_submission: Annotated[
         bool, typer.Option(help="Authorize submitting an observed form after filling it")
     ] = False,
+    allow_network_details: Annotated[
+        bool, typer.Option(help="Authorize inspection of network request headers and bodies")
+    ] = False,
 ) -> None:
     """Run bounded exploration and write result.json, trajectory.jsonl and metrics.json.
 
@@ -219,6 +222,7 @@ def run(
             allow_mutations=allow_mutations,
             allow_form_input=allow_form_input,
             allow_form_submission=allow_form_submission,
+            allow_network_details=allow_network_details,
         )
     except ValidationError as exc:
         locations = [".".join(map(str, error["loc"])) for error in exc.errors()]

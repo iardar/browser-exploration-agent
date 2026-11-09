@@ -91,6 +91,7 @@ class ContextBuilder:
                 "allow_mutations": task.allow_mutations,
                 "allow_form_input": task.allow_form_input,
                 "allow_form_submission": task.allow_form_submission,
+                "allow_network_details": task.allow_network_details,
                 "max_steps": task.max_steps,
                 "max_duration_seconds": task.max_duration_seconds,
             }
