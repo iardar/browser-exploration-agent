@@ -151,6 +151,9 @@ remain attempted rows; recall is null when capture is unavailable or a case has 
 failures. The deterministic local grader supplies these scores. This command does not evaluate
 the grader challenge corpus.
 
+See the [evaluation metrics reference](../../docs/evaluation_metrics.md) for definitions,
+denominators, examples, per-run checks and the separate grader challenge metrics.
+
 ### Trial isolation and verification
 
 The evaluation adapter implements the core's existing `BrowserConnection` interface. Each trial

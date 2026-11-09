@@ -1,0 +1,20 @@
+{
+  "DET-001": {"status": 200, "content_type": "application/json", "response_body": "{\"marker\":\"json-001\"}", "marker": "json-001"},
+  "DET-002": {"status": 500, "content_type": "application/json", "response_body": "{\"marker\":\"error-002\"}", "marker": "error-002"},
+  "DET-003": {"status": 200, "content_type": "text/plain; charset=utf-8", "response_body": "plain-003\n", "marker": "plain-003"},
+  "DET-004": {"status": 200, "content_type": "application/xml", "response_body": "<result>xml-004</result>", "marker": "xml-004"},
+  "DET-005": {"status": 200, "content_type": "text/html; charset=utf-8", "response_body": "<p>html-005</p>", "marker": "html-005"},
+  "DET-006": {"status": 200, "content_type": "image/svg+xml", "response_body": "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>svg-006</title></svg>", "marker": "svg-006"},
+  "DET-007": {"status": 422, "content_type": "application/problem+json", "response_body": "{\"detail\":\"problem-007\"}", "marker": "problem-007"},
+  "DET-008": {"status": 200, "content_type": "text/plain; charset=utf-8", "response_body": "café-008\n", "marker": "café-008"},
+  "DET-009": {"status": 200, "content_type": "text/plain; charset=utf-8", "response_body": "large-009\n", "repeat": 80000, "marker": "large-009"},
+  "DET-010": {"status": 200, "content_type": "text/plain", "response_body": "ok", "request_headers": {"x-eval-request": "request-header-010"}, "marker": "request-header-010"},
+  "DET-011": {"status": 200, "content_type": "text/plain", "response_body": "ok", "response_headers": {"x-eval-response": "response-header-011"}, "marker": "response-header-011"},
+  "DET-012": {"status": 200, "content_type": "application/json", "response_body": "{\"ok\":true}", "request_headers": {"content-type": "application/json"}, "request_body": "{\"marker\":\"post-json-012\"}", "marker": "post-json-012"},
+  "DET-013": {"status": 200, "content_type": "text/plain", "response_body": "ok", "request_headers": {"content-type": "application/x-www-form-urlencoded"}, "request_body": "marker=form-013", "marker": "form-013"},
+  "DET-014": {"status": 200, "content_type": "text/plain", "response_body": "ok", "request_headers": {"content-type": "text/plain"}, "request_body": "post-text-014", "marker": "post-text-014"},
+  "DET-015": {"status": 200, "content_type": "application/json", "response_body": "{\"marker\":\"public-015\",\"token\":\"secret-canary-015\"}", "marker": "public-015", "secret": "secret-canary-015"},
+  "DET-016": {"status": 200, "content_type": "text/plain", "response_body": "ok", "request_headers": {"x-eval-request": "public-016", "authorization": "Bearer secret-canary-016"}, "marker": "public-016", "secret": "secret-canary-016"},
+  "DET-017": {"status": 200, "content_type": "application/octet-stream", "response_body": "BINARY-CANARY-017", "expected": "blocked_binary"},
+  "DET-018": {"status": 200, "content_type": "image/png", "response_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLQWQAAAABJRU5ErkJggg==", "expected": "blocked_binary"}
+}

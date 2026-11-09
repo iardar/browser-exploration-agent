@@ -8,6 +8,8 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
+from evals.network_request_details.fixture import fixture_response as detail_response
+
 from .dataset import ROOT, load_case, load_dataset, load_requests
 
 
@@ -16,6 +18,10 @@ def fixture_fingerprint() -> str:
     digest = hashlib.sha256()
     for name in ("fixture.py", "dataset.py", "probe.js", "cases.json", "requests.csv"):
         digest.update(name.encode() + b"\0" + (ROOT / name).read_bytes())
+    details = ROOT.parent / "network_request_details"
+    for name in ("cases.json", "oracle.json", "dataset.py", "fixture.py"):
+        path = details / name
+        digest.update(path.relative_to(ROOT.parent).as_posix().encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()
 
 
@@ -27,6 +33,9 @@ def fixture_response(path: str) -> tuple[int, str, bytes]:
     """Build a response without sockets, so fixture contents can be verified offline."""
     if path == "/favicon.ico":
         return 204, "image/x-icon", b""
+    detail = detail_response(path)
+    if detail is not None:
+        return detail.status, detail.content_type, detail.body
     probe = re.fullmatch(r"/__eval__/(seed|check|traffic)/([a-f0-9]{32})", path)
     if probe:
         mode, token = probe.groups()
@@ -73,13 +82,41 @@ class FixtureHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Respond to one GET; the fixture has no mutation endpoints."""
-        status, content_type, body = fixture_response(urlsplit(self.path).path)
+        path = urlsplit(self.path).path
+        detail = detail_response(path, headers=self.headers)
+        if detail is None:
+            status, content_type, body = fixture_response(path)
+            headers: dict[str, str] = {}
+        else:
+            status, content_type, body = detail.status, detail.content_type, detail.body
+            headers = detail.headers
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for name, value in headers.items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def do_POST(self) -> None:
+        """Accept only fixture-declared POST payloads without changing server state."""
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(min(length, 4096))
+        detail = detail_response(
+            urlsplit(self.path).path, method="POST", body=body, headers=self.headers
+        )
+        if detail is None or length > 4096:
+            self.send_error(404)
+            return
+        self.send_response(detail.status)
+        self.send_header("Content-Type", detail.content_type)
+        self.send_header("Content-Length", str(len(detail.body)))
+        self.send_header("Cache-Control", "no-store")
+        for name, value in detail.headers.items():
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(detail.body)
 
     def log_message(self, format: str, *args: object) -> None:
         """Keep request logging out of the fixture console."""

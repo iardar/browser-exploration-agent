@@ -1,0 +1,32 @@
+{
+  "dataset_id": "network-request-details-v1",
+  "fixture_version": "1",
+  "task_defaults": {
+    "max_steps": 8,
+    "max_model_iterations": 7,
+    "max_duration_seconds": 120,
+    "max_recent_observations": 5,
+    "max_observation_chars": 6000,
+    "max_context_chars": 18000
+  },
+  "cases": [
+    {"id": "DET-001", "category": "body", "title": "Successful JSON response", "method": "GET", "part": "response-body"},
+    {"id": "DET-002", "category": "body", "title": "HTTP 500 JSON response", "method": "GET", "part": "response-body"},
+    {"id": "DET-003", "category": "body", "title": "Plain-text response", "method": "GET", "part": "response-body"},
+    {"id": "DET-004", "category": "body", "title": "XML response", "method": "GET", "part": "response-body"},
+    {"id": "DET-005", "category": "body", "title": "HTML response", "method": "GET", "part": "response-body"},
+    {"id": "DET-006", "category": "body", "title": "SVG response", "method": "GET", "part": "response-body"},
+    {"id": "DET-007", "category": "body", "title": "Problem JSON response", "method": "GET", "part": "response-body"},
+    {"id": "DET-008", "category": "body", "title": "Unicode text response", "method": "GET", "part": "response-body"},
+    {"id": "DET-009", "category": "edge", "title": "Large text response", "method": "GET", "part": "response-body"},
+    {"id": "DET-010", "category": "header", "title": "Request header", "method": "GET", "part": "request-headers"},
+    {"id": "DET-011", "category": "header", "title": "Response header", "method": "GET", "part": "response-headers"},
+    {"id": "DET-012", "category": "body", "title": "JSON POST request body", "method": "POST", "part": "request-body"},
+    {"id": "DET-013", "category": "body", "title": "Form POST request body", "method": "POST", "part": "request-body"},
+    {"id": "DET-014", "category": "body", "title": "Text POST request body", "method": "POST", "part": "request-body"},
+    {"id": "DET-015", "category": "redaction", "title": "Secret in JSON response", "method": "GET", "part": "response-body"},
+    {"id": "DET-016", "category": "redaction", "title": "Secret in request header", "method": "GET", "part": "request-headers"},
+    {"id": "DET-017", "category": "boundary", "title": "Binary octet-stream response", "method": "GET", "part": "response-body"},
+    {"id": "DET-018", "category": "boundary", "title": "PNG response", "method": "GET", "part": "response-body"}
+  ]
+}

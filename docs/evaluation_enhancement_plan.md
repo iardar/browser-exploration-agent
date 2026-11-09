@@ -285,8 +285,12 @@ acceptance and false rejection are reported before the grader is used as a relea
 
 **Problem.** `filter` and `all` are forwarded when advertised, but the current fixture/replay does
 not evaluate their real scope semantics. Tool availability also varies between MCP deployments.
-The agent now supports optional per-request details behind explicit permission, but those details
-do not yet have a separate evaluation dataset or grader.
+The agent now supports optional per-request details behind explicit permission. A separate
+22-case [request-detail corpus](../evals/network_request_details/README.md), versioned grader,
+offline replay, and opt-in LangSmith runner exist. Model-free real-browser `--check-only` runs
+verified the original 18 cases on 2026-11-09 and all 22 v2 cases on 2026-11-10. The
+[first real-model experiment](../evals/network_request_details/baseline_review.md) found three
+grader v1 false negatives; grader v2 corrects them. The four new ambiguous cases await a v2 run.
 
 **Development plan.**
 
@@ -298,11 +302,13 @@ do not yet have a separate evaluation dataset or grader.
    after navigation when `all` is available, and truthful partial-scope reporting. The oracle must
    distinguish full traffic from the returned subset. Add a real-MCP opt-in test so fake
    forwarding alone cannot stand in for server behavior.
-3. Create a separate `browser_network_request` detail dataset and
-   versioned grader for selecting an observed request and assessing request/response headers or
-   bodies. Cover wrong/stale indices, missing or unavailable parts, large/binary bodies, and
-   redaction using synthetic canaries. Score only data the server actually makes available;
-   keep raw payloads local under the existing retention policy.
+3. Expand the separate `browser_network_request` detail corpus and versioned grader beyond its
+   current 22 controlled cases. Current cases cover selected request/response headers and bodies,
+   large/binary bodies, ambiguous indices, wrong-index grading, and redaction canaries. Add
+   stale-index and missing/unavailable-part cases after confirming the pinned MCP server's real
+   response shapes.
+   Score only data the server actually makes available; keep raw payloads local under the existing
+   retention policy.
 
 **Done when:** scope cases demonstrate what was requested and what was returned for each tested
 server schema. Detail evaluation requires a compatible server and a reviewed data/retention

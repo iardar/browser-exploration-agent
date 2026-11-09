@@ -56,7 +56,8 @@
         "8766"
       ],
       "volumes": [
-        "./:/workspace/evals/network_capture:ro"
+        "./:/workspace/evals/network_capture:ro",
+        "../network_request_details:/workspace/evals/network_request_details:ro"
       ],
       "read_only": true,
       "security_opt": [

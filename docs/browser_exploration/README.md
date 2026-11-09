@@ -362,6 +362,9 @@ characters, with an additional marker. The MCP transport may deliver a larger re
 limit is applied. The app does not read server-side files; the MCP server can still write files on
 its own host, so manage its output directory separately.
 
+The separate [22-case request-detail evaluation](../../evals/network_request_details/README.md)
+checks selection, permitted parts, evidence-backed reporting, redaction and binary boundaries.
+
 Enable `BROWSER_RETAIN_RAW_EVIDENCE=true` or add `--retain-raw-evidence` to `run` to also save the
 redacted tool response at `evidence/obs-XXXX.json` (detail responses use the limit above). The
 observation's `evidence_ref` and `result.json` evidence entry link to that file. Keeping the
