@@ -1,7 +1,11 @@
 """Check detail dataset publication, validation and feedback with fake LangSmith clients."""
 
+import argparse
+import json
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from typing import cast
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from evals.network_request_details import langsmith_eval as evaluation
@@ -23,7 +27,75 @@ def _client() -> Mock:
         SimpleNamespace(inputs=row["inputs"], outputs=row["outputs"])
         for row in reversed(list(expected_examples().values()))
     ]
+    client.aevaluate = AsyncMock()
     return client
+
+
+@pytest.fixture
+def client() -> Mock:
+    """Return a fresh fake LangSmith dataset and async evaluator client."""
+    return _client()
+
+
+@pytest.fixture
+def runner_args(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> argparse.Namespace:
+    """Provide completed dataset/browser setup without external services."""
+    monkeypatch.setenv("BROWSER_NETWORK_RESTRICTED", "true")
+    monkeypatch.setenv("BROWSER_ALLOW_PRIVATE_NETWORK", "true")
+    monkeypatch.setattr(evaluation, "_source_metadata", lambda: {"source_revision": "test"})
+    monkeypatch.setattr(
+        evaluation,
+        "TrialIsolation",
+        Mock(
+            return_value=SimpleNamespace(
+                prepare=AsyncMock(),
+                timeout=1.0,
+                failed=False,
+                deployment={},
+                versions={},
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "_check_detail_capability",
+        AsyncMock(
+            return_value=[
+                "request-body",
+                "request-headers",
+                "response-body",
+                "response-headers",
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "_probe_corpus",
+        AsyncMock(return_value=list(expected_examples())),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "validate_model",
+        AsyncMock(
+            return_value={
+                "status": "ready",
+                "model": "test-model",
+                "model_api": "responses",
+                "reasoning_effort": "low",
+                "provider_model": "provider-test-model",
+                "usage": {"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+            }
+        ),
+    )
+    return argparse.Namespace(
+        output_dir=tmp_path,
+        fixture_base_url="http://127.0.0.1:8766",
+        check_only=False,
+        experiment_prefix="detail-unit-test",
+        num_repetitions=1,
+        mcp_url=evaluation.DEFAULT_MCP_URL,
+        deployment_container=evaluation.DEFAULT_CONTAINER,
+    )
 
 
 def test_existing_dataset_is_validated_without_mutation() -> None:
@@ -137,3 +209,76 @@ def test_fixture_url_requires_controlled_origin_and_private_opt_in() -> None:
     for invalid in ("http://user:pass@127.0.0.1:8766", "http://127.0.0.1:8766/path"):
         with pytest.raises(evaluation.DetailEvaluationError):
             evaluation._fixture_url(invalid, path, allowed)
+
+
+async def test_check_only_bypasses_model_validation_and_experiment_creation(
+    client: Mock,
+    runner_args: argparse.Namespace,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Keep the request-detail readiness check provider-free.
+
+    Arrange: Complete fake dataset, deployment, capability and fixture probes.
+    Act: Run request-detail evaluation setup with `--check-only` behavior.
+    Assert: It reports zero model calls and invokes neither validation nor `aevaluate`.
+    """
+    runner_args.check_only = True
+
+    await evaluation.run_evaluation(runner_args, client)
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "ready"
+    assert result["model_calls"] == 0
+    assert result["fixture_cases_verified"] == 22
+    cast(AsyncMock, evaluation.validate_model).assert_not_awaited()
+    client.aevaluate.assert_not_awaited()
+
+
+async def test_failed_model_preflight_prevents_detail_experiment_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Mock,
+    runner_args: argparse.Namespace,
+) -> None:
+    """Stop before creating a detail experiment when the provider probe fails.
+
+    Arrange: Complete fake dataset/browser setup and fail the shared model validator.
+    Act: Start a live request-detail evaluation.
+    Assert: The safe setup error is raised and LangSmith `aevaluate` is never called.
+    """
+    validator = AsyncMock(side_effect=evaluation.ModelPreflightError("provider unavailable"))
+    monkeypatch.setattr(evaluation, "validate_model", validator)
+
+    with pytest.raises(evaluation.DetailEvaluationError, match="provider unavailable"):
+        await evaluation.run_evaluation(runner_args, client)
+
+    validator.assert_awaited_once()
+    client.aevaluate.assert_not_awaited()
+
+
+async def test_successful_model_preflight_is_recorded_in_detail_experiment_metadata(
+    client: Mock,
+    runner_args: argparse.Namespace,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Record a successful provider probe with the experiment configuration.
+
+    Arrange: Return successful fake provider validation and an empty LangSmith result set.
+    Act: Run request-detail evaluation orchestration through experiment creation.
+    Assert: `aevaluate` receives the probe metadata and the CLI keeps one JSON result document.
+    """
+    finished = Mock(
+        experiment_name="experiment",
+        experiment_id="experiment-id",
+        url="https://example.com/experiment",
+    )
+    finished.wait = AsyncMock()
+    finished.__len__ = Mock(return_value=0)
+    client.aevaluate.return_value = finished
+
+    await evaluation.run_evaluation(runner_args, client)
+
+    cast(AsyncMock, evaluation.validate_model).assert_awaited_once()
+    metadata = client.aevaluate.await_args.kwargs["metadata"]
+    assert metadata["model_preflight"]["status"] == "ready"
+    assert metadata["model_preflight"]["provider_model"] == "provider-test-model"
+    assert json.loads(capsys.readouterr().out)["status"] == "completed"

@@ -21,6 +21,7 @@ from browser_exploration.browser_tools import network_detail_parts
 from browser_exploration.config import Settings
 from browser_exploration.contracts import BrowserExplorationTask
 from browser_exploration.explorer import AutonomousBrowserExplorer
+from evals.model_preflight import ModelPreflightError, validate_model
 from evals.network_capture.deployment import DEFAULT_CONTAINER, DEFAULT_MCP_URL, IsolationError
 from evals.network_capture.fixture import fixture_fingerprint
 from evals.network_capture.isolation import TrialConnection, TrialIsolation, open_session
@@ -285,6 +286,11 @@ async def run_evaluation(args: argparse.Namespace, client: Client) -> None:
 
     provenance = _source_metadata()
 
+    try:
+        model_preflight = await validate_model(settings)
+    except ModelPreflightError as exc:
+        raise DetailEvaluationError(str(exc)) from None
+
     async def target(inputs: dict[str, Any]) -> dict[str, Any]:
         """Run one reviewed input, returning only safe grade and usage fields."""
         case_id = inputs.get("case_id")
@@ -358,6 +364,7 @@ async def run_evaluation(args: argparse.Namespace, client: Client) -> None:
             "dataset_id": load_dataset()["dataset_id"],
             "models": [settings.model],
             "planned_repetitions": args.num_repetitions,
+            "model_preflight": model_preflight,
             "deployment": isolation.deployment,
             "runtime_versions": isolation.versions,
             "detail_parts": parts,

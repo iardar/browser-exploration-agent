@@ -20,6 +20,7 @@ from langsmith.schemas import Example
 from browser_exploration.config import Settings
 from browser_exploration.contracts import BrowserExplorationTask
 from browser_exploration.explorer import AutonomousBrowserExplorer
+from evals.model_preflight import ModelPreflightError, validate_model
 from evals.network_capture.dataset import ROOT, load_case, load_dataset, load_requests
 from evals.network_capture.deployment import DEFAULT_CONTAINER, DEFAULT_MCP_URL, IsolationError
 from evals.network_capture.grade import GRADER_VERSION, grade_run
@@ -299,6 +300,11 @@ async def run_evaluation(args: argparse.Namespace) -> None:
         )
         return
 
+    try:
+        model_preflight = await validate_model(settings)
+    except ModelPreflightError as exc:
+        raise EvaluationSetupError(str(exc)) from None
+
     provenance = {
         **_source_metadata(),
         "dataset_source_content_sha256": _dataset_source_hash(),
@@ -403,6 +409,7 @@ async def run_evaluation(args: argparse.Namespace) -> None:
         **provenance,
         "models": [settings.model],
         "planned_repetitions": args.num_repetitions,
+        "model_preflight": model_preflight,
         "network_boundary_attested": settings.network_restricted,
         "deployment": isolation.deployment,
         "runtime_versions": isolation.versions,

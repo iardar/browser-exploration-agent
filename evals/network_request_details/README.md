@@ -99,6 +99,11 @@ uv run python -m evals.network_request_details.langsmith_eval \
   --experiment-prefix network-request-details-v2 --num-repetitions 1
 ```
 
+Before creating the experiment, the runner sends one minimal structured-output request using the
+configured model/API/reasoning settings. A provider error stops before LangSmith creates an
+experiment. This preflight is an additional provider request beyond the agent's per-case calls;
+`--check-only` remains model-free.
+
 One repetition makes 22 serial trials. Additional repetitions increase provider use; the CLI
 allows 1–10. Each trial receives a new isolated browser session. Full artifacts and isolation
 records remain under `runs/evals/network-request-details-langsmith/`, which is ignored by Git.

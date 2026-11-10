@@ -109,7 +109,10 @@ the configured MCP server. It saves full artifacts locally, but sends only compa
 execution fields to LangSmith. `BROWSER_NETWORK_RESTRICTED=true` is an operator attestation; it
 does not install network controls. Configure the provider and LangSmith keys in `.env`.
 The evaluator verifies the running Compose deployment before any model call and before each
-trial. It rejects other endpoints, launch configurations, container restarts and fixture drift.
+trial. Before creating the LangSmith experiment, it also makes one minimal structured-output
+request with the configured model/API/reasoning settings. A provider error stops setup before an
+experiment is created. It rejects other endpoints, launch configurations, container restarts and
+fixture drift.
 It requires local Docker inspection access and defaults to `http://127.0.0.1:8932/mcp`. Leave
 `--mcp-url` and `--deployment-container` at their defaults for this checked-in deployment.
 
@@ -130,6 +133,7 @@ disposable local browser sessions to verify isolation.
 
 Then run one serial experiment. Each dataset row runs once by default; use
 `--num-repetitions 5` for the small repeated pilot described in the evaluation handbook.
+The run makes one provider preflight request before the experiment, in addition to agent calls.
 
 ```bash
 BROWSER_NETWORK_RESTRICTED=true \

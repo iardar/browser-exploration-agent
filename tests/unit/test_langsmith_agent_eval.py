@@ -316,6 +316,20 @@ def setup_runner(
     )
     monkeypatch.setattr(
         evaluation,
+        "validate_model",
+        AsyncMock(
+            return_value={
+                "status": "ready",
+                "model": "test-model",
+                "model_api": "responses",
+                "reasoning_effort": "low",
+                "provider_model": "provider-test-model",
+                "usage": {"input_tokens": 2, "output_tokens": 1, "total_tokens": 3},
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        evaluation,
         "TrialIsolation",
         Mock(
             return_value=SimpleNamespace(
@@ -367,6 +381,7 @@ async def test_preflight_never_runs_an_agent(
     assert status["status"] == "ready" and status["model_calls"] == 0
     assert status["dataset_examples"] == 3
     explorer.assert_not_called()
+    cast(AsyncMock, evaluation.validate_model).assert_not_awaited()
     client.aevaluate.assert_not_called()
 
 
@@ -391,6 +406,27 @@ async def test_preflight_failure_prevents_experiment_creation(
         ).return_value.prepare.side_effect = evaluation.IsolationError(failure)
     with pytest.raises(evaluation.EvaluationSetupError):
         await evaluation.run_evaluation(setup_runner)
+    client.aevaluate.assert_not_called()
+
+
+async def test_failed_model_preflight_prevents_capture_experiment_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Mock,
+    setup_runner: argparse.Namespace,
+) -> None:
+    """Stop before LangSmith creates a capture experiment when the provider is unavailable.
+
+    Arrange: Complete dataset and browser setup, then make the model probe fail safely.
+    Act: Run the live capture evaluation setup.
+    Assert: Setup reports the model failure and never calls LangSmith `aevaluate`.
+    """
+    validator = AsyncMock(side_effect=evaluation.ModelPreflightError("provider unavailable"))
+    monkeypatch.setattr(evaluation, "validate_model", validator)
+
+    with pytest.raises(evaluation.EvaluationSetupError, match="provider unavailable"):
+        await evaluation.run_evaluation(setup_runner)
+
+    validator.assert_awaited_once()
     client.aevaluate.assert_not_called()
 
 
@@ -435,6 +471,7 @@ async def test_runner_grades_real_local_artifacts_and_uploads_only_compact_field
         assert kwargs["data"] == evaluation.DATASET_ID
         assert kwargs["evaluators"] == [evaluation.score_capture]
         assert kwargs["metadata"]["source_revision"] == "test-revision"
+        assert kwargs["metadata"]["model_preflight"]["status"] == "ready"
         row = client.list_examples.return_value[1]
         output = await target(row.inputs)
         assert output["grade"]["passed"] is True
