@@ -2,6 +2,13 @@
 
 Review date: 2026-11-09. Status: proposed work, except where explicitly described as existing.
 
+Progress update, 2026-11-10: the separate request-detail v2 evaluation now has a reconciled
+22/22 Sol smoke and 110/110 Luna baseline (five repetitions per case). See the
+[baseline review](../evals/network_request_details/baseline_review_v2.md) and the
+[harder-case development plan](network_request_details_harder_cases_plan.md). The original
+capture-focused findings below describe the November 9 review; this later detail baseline does
+not complete the capture pilot, automatic publication reconciliation, or other proposed steps.
+
 This plan improves the **evaluation** of the browser exploration agent. Its implementation work
 belongs primarily in `evals/`, evaluation fixtures, tests, and documentation. An evaluation may
 identify a production-agent defect, but changing agent behavior is a separate decision. Preserve
@@ -290,7 +297,10 @@ The agent now supports optional per-request details behind explicit permission. 
 offline replay, and opt-in LangSmith runner exist. Model-free real-browser `--check-only` runs
 verified the original 18 cases on 2026-11-09 and all 22 v2 cases on 2026-11-10. The
 [first real-model experiment](../evals/network_request_details/baseline_review.md) found three
-grader v1 false negatives; grader v2 corrects them. The four new ambiguous cases await a v2 run.
+grader v1 false negatives; grader v2 corrects them. The later v2 Luna baseline passed all 22
+cases five times, including all four ambiguous cases. Its export and local grades agree.
+The [harder-case plan](network_request_details_harder_cases_plan.md) defines the next detail
+expansion without changing the v2 regression corpus.
 
 **Development plan.**
 

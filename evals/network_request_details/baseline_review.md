@@ -36,4 +36,6 @@ configuration and does not establish repeatability.
 The v1 cases had one obvious target URL and a static script decoy. Four v2 cases now add similar
 paths, same-URL requests with different methods or statuses, and same-URL requests with identical
 listing lines that require inspecting candidate overviews. These edge cases test selection more
-directly. Their real-model outcomes remain unmeasured until a v2 experiment is run.
+directly. Subsequent v2 measurements are documented in the [v2 baseline review](baseline_review_v2.md):
+all four passed once in the Sol smoke and five times each in the Luna baseline. The historical
+v1 verdicts and exported scores remain unchanged.

@@ -20,7 +20,7 @@ dataset rows, experiment outputs, and compact feedback. Raw browser evidence rem
 | Evaluation | Local identity | LangSmith dataset | Cases | Grader | Current evidence |
 | --- | --- | --- | ---: | --- | --- |
 | Network capture | `network-capture-v1` | `browser-network-capture-native-v1` (`2ed1a341-fd4d-4b95-b123-09bf46d29420`) | 3 | v2 | One three-case smoke experiment passed 3/3; one repetition does not establish reliability |
-| Request details | `network-request-details-v2` | `browser-network-request-details-native-v2` (`c6a8ea9f-269a-4666-96bd-686c10c1581d`) | 22 | v2 | Dataset published; model-free preflight passed all 22 cases; no v2 real-model experiment recorded |
+| Request details | `network-request-details-v2` | `browser-network-request-details-native-v2` (`c6a8ea9f-269a-4666-96bd-686c10c1581d`) | 22 | v2 | Sol smoke passed 22/22; Luna five-repetition baseline passed 110/110, with every case 5/5; exports reconciled with local artifacts |
 | Capture grader challenges | `network-grader-challenges-v1` | Local benchmark only | 30 | capture grader v2 | 7/7 valid controls accepted and 23/23 corruptions rejected |
 
 The request-detail v1 dataset is frozen under
@@ -34,6 +34,8 @@ The available local exports are:
 
 - `ls_results/network-capture-smoke-da8ea165.csv`
 - `ls_results/network-request-details-baseline-49359744.csv`
+- `ls_results/network-request-details-v2-smoke-d87c7d0e.csv`
+- `ls_results/network-request-details-v2-baseline-luna-medium-18afb255.csv`
 
 These files are local experiment evidence. They are ignored by Git and should not be treated as
 part of the versioned corpus.
@@ -138,6 +140,8 @@ is what makes a score more useful than asking the model whether it succeeded.
 | `evals/network_request_details/probe.py` | Model-free validation of request-detail tools and fixture cases |
 | `evals/model_preflight.py` | Provider and structured-output check before experiment creation |
 | `docs/evaluation_metrics.md` | Complete metric and per-check reference with examples |
+| `evals/network_request_details/baseline_review_v2.md` | Reconciled v2 smoke and five-repetition baseline evidence |
+| `docs/network_request_details_harder_cases_plan.md` | Proposed versioned expansion; not implemented |
 
 ## 6. Network-capture corpus
 
@@ -463,8 +467,45 @@ API, and medium reasoning effort.
 - grader v2 locally regrades the same artifacts as 18/18;
 - execution: 85 browser calls, 67 model calls, 251,407 input tokens, and 6,596 output tokens.
 
-The v1 result does not measure the four ambiguous v2 cases. A v2 real-model experiment is still
-needed.
+The v1 result does not measure the four ambiguous v2 cases. The following experiments do.
+
+### Request-detail v2 smoke and repeated baseline
+
+`network-request-details-v2-smoke-d87c7d0e` passed 22/22 with `gpt-5.6-sol`, Responses API,
+medium reasoning, and one repetition. The subsequent
+`network-request-details-v2-baseline-luna-medium-18afb255` used `gpt-5.6-luna` with the same
+API/reasoning settings and five repetitions: **110/110 passed; every case passed 5/5**.
+
+All 110 exported case/repetition pairs and run IDs were present and unique. Inputs and reference
+outputs matched the corpus; freshly recomputed grader-v2 checks and execution metrics matched
+the export. Every trial used a distinct browser session and passed readiness and cleanup. There
+were no browser-call or result errors. This is a manual export reconciliation, not automatic
+publication verification by the runner.
+
+| Luna baseline measurement | Result |
+| --- | ---: |
+| `detail_pass`, `oracle_consistent`, and five general detail checks | Each 110/110 |
+| Ambiguity cases DET-019–022 | 20/20 |
+| Secret redaction, DET-015–016 | 10/10 applicable; other 100 unscored |
+| Binary boundaries, DET-017–018 | 10/10 |
+| Browser / model calls during trials | 530 / 420 |
+| Input / output tokens during trials | 1,582,740 / 41,050 |
+| Mean / median / 95th-percentile trial duration | 9.33 / 9.15 / 11.23 seconds |
+
+The preflight succeeded and used 411 tokens once, bringing total provider usage to 1,624,201
+tokens. Its metadata appears on all rows but must not be counted 110 times. Top-level CSV tokens
+remain zero and cost blank; usage above comes from `outputs.execution`.
+
+The clean baseline revision is `995ef0f`. Source snapshot, dataset, fixture, and runtime
+fingerprints match the Sol smoke, although different repetition counts prevent a balanced model
+comparison. Each Luna case followed the same tool/argument sequence across all five trials.
+All 110 listings used `filter`. Header cases DET-010, DET-011, and DET-016 correctly used values
+already in the overview, so this baseline does not exercise explicit header-part calls.
+
+See the [full v2 review](../evals/network_request_details/baseline_review_v2.md) for fingerprints,
+isolation records, interpretation limits, and the reproduction command. Keep v2 unchanged as a
+regression reference. The [harder-case plan](network_request_details_harder_cases_plan.md)
+proposes new request positions, larger candidate sets, explicit part calls, and temporal cases.
 
 ## 17. Diagnose failures
 
@@ -526,18 +567,23 @@ involves selection.
 The current system is useful but deliberately narrow:
 
 - capture has only three controlled cases;
-- request-detail v2 has no real-model baseline yet;
-- the recorded experiments use one repetition;
+- request-detail v2 passed five repetitions per case, but uses fixed small candidate sets and
+  parser-blocking traffic that completes before fixture readiness;
+- the capture baseline and Sol request-detail smoke still use one repetition;
+- the Luna detail baseline does not exercise explicit header-part calls;
 - grader challenges were used during grader hardening and are not an independent holdout;
 - no semantic LLM judge evaluates general prose quality;
-- `filter` and `all` network-listing semantics are not covered by the current corpora;
+- `filter` was used successfully in the detail runs, but broader filter semantics, no-match
+  recovery, and `all` history behavior remain unmeasured;
 - the operator must enforce the external browser network boundary;
 - provider reachability can change after the model preflight;
-- experiment receipts and feedback read-back do not yet prove every planned row was published.
+- the reviewed v2 exports match their local runs, but automatic experiment receipts and feedback
+  read-back do not yet prove publication for arbitrary or interrupted experiments.
 
-The next strong evidence would be a five-repetition capture baseline and a repeated v2
-request-detail experiment, with every planned attempt accounted for and confidence intervals or
-at least per-case pass counts reported.
+Next, preserve the measured v2 baseline and implement the separately versioned
+[harder request-detail cases](network_request_details_harder_cases_plan.md). A five-repetition
+capture baseline and automatic attempt/publication accounting also remain useful work. Report
+per-case counts and distinguish new challenges from unchanged controls in future comparisons.
 
 ## Related documentation
 
@@ -545,5 +591,6 @@ at least per-case pass counts reported.
 - [Request-detail evaluation guide](../evals/network_request_details/README.md)
 - [Evaluation metrics reference](evaluation_metrics.md)
 - [Evaluation enhancement plan](evaluation_enhancement_plan.md)
+- [Harder request-detail case plan](network_request_details_harder_cases_plan.md)
 - [Browser exploration testing guide](browser_exploration/testing.md)
 - [Browser exploration contract](contracts/browser_exploration_v1.md)

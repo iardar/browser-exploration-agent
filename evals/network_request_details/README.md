@@ -13,6 +13,12 @@ the controlled payloads and expected values; it is never inserted into the model
 The original 18 inputs are frozen in [`v1/`](v1/), and the
 [first experiment review](baseline_review.md) explains its grader correction.
 
+The [v2 baseline review](baseline_review_v2.md) records a 22/22 Sol smoke and a **110/110 Luna
+baseline**, five repetitions of every case. LangSmith exports match local grades and artifacts.
+The [harder-case plan](../../docs/network_request_details_harder_cases_plan.md) proposes a new
+dataset version while preserving v2 as this regression reference; those new cases are not yet
+implemented.
+
 | Cases | Behavior measured |
 | --- | --- |
 | DET-001–009 | JSON, HTTP 500, plain text, XML, HTML, SVG, problem JSON, Unicode, and a long textual response body |
@@ -119,4 +125,5 @@ The offline replay verifies graph and grader behavior without a real browser. On
 the v1 `--check-only` verified all 18 original cases. On 2026-11-10, the v2 dataset
 (`c6a8ea9f-269a-4666-96bd-686c10c1581d`) was published and `--check-only` verified all
 22 cases against the pinned MCP server, all four detail parts, LangSmith dataset readback, and
-browser isolation with zero model calls. A real-model v2 experiment remains opt-in.
+browser isolation with zero model calls. Later that day, the Sol smoke and five-repetition Luna
+baseline completed and were reconciled with their exports. Further live experiments remain opt-in.
