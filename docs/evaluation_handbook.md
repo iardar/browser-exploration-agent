@@ -587,6 +587,7 @@ per-case counts and distinguish new challenges from unchanged controls in future
 
 ## Related documentation
 
+- [Evaluation learning handbook: evidence, graders, metrics, and annotated Python examples](how_evaluation_works.md)
 - [Network-capture evaluation guide](../evals/network_capture/README.md)
 - [Request-detail evaluation guide](../evals/network_request_details/README.md)
 - [Evaluation metrics reference](evaluation_metrics.md)

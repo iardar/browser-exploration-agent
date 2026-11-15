@@ -108,7 +108,7 @@ The local checks object also contains these configuration/integrity checks, whic
 | `fixed_budgets` | Task limits equal v2 defaults. | Run raises its model-iteration limit. |
 | `detail_permission_only` | Detail permission is on; mutation/form permissions remain off. | Task enables mutation. |
 | `retention` | Raw evidence retention is on. | Detail evidence is unavailable. |
-| `completed` | Agent result status is `completed`. | Agent returns `partial`. |
+| `completed` | Agent result status is `completed`. | Agent returns `model_limit`. |
 | `within_budgets` | Browser calls, model calls and duration stay within limits. | Run exceeds browser-call limit. |
 | `consistent_actions` | Result action names and call counts match the trajectory. | Result action list differs from observations. |
 | `stayed_on_case` | Observations/navigation stay on the case page. | Agent navigates elsewhere. |
@@ -151,10 +151,11 @@ to measure whether the network-capture grader passes known-good controls and rej
 | `controls_unchanged` | Saved source-control fingerprints remain unchanged. | All fingerprints match: `true`. |
 | `all_expectations_met` | Controls unchanged and every challenge matches its expected verdict/check. | All 30 scenarios match: `true`. |
 
-Each scenario also has `label_matches`, whether actual pass/fail matches its expected label;
-`expected_check_detected`, whether the intended failing check appears; and `challenge_correct`,
-their conjunction. These challenges measure the current reviewed mutation set and are not an
-independent validation set.
+Each scenario also has `label_matches`, whether actual pass/fail matches its expected label,
+and `expected_check_detected`, whether the intended failing check appears (true for positive
+controls). Their conjunction describes a correct challenge result; the report does not emit a
+separate `challenge_correct` field. These challenges measure the current reviewed mutation set
+and are not an independent validation set.
 
 ## Comparing experiments
 
